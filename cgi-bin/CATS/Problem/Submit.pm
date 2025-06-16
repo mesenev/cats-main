@@ -77,7 +77,7 @@ sub _get_DEs {
             WHERE DDT.de_id = D.id AND CDT.contest_id = ?~ : q~
         SELECT 1 FROM de_de_tags DDT
             WHERE DDT.de_id = D.id AND DDT.tag_id = ?~;
-    my $id_cond = $de_id ? 'AND D.id = ?' : '';
+    my $id_cond = $de_id ? ' AND D.id = ?' : '';
     {
         des => $dbh->selectall_arrayref(qq~
             SELECT D.id, D.id AS de_id, D.code, D.description, D.file_ext,
