@@ -45,21 +45,57 @@ sub init {
 }
 
 sub get_json {
-    my ($self, $params, $headers) = @_;
-    suppress_certificate_check if $self->{no_certificate_check};
+    my ($self, $params, $headers, $max_retries) = @_;
+    $max_retries //= 3;
 
+    suppress_certificate_check if $self->{no_certificate_check};
     push @$params, json => 1;
-    my $request = $self->{agent}->request(
-        POST "$self->{cats_url}/", %{$headers // {}}, Content => $params);
-    if ($request->{_rc} == 502) {
-        # May be intermittent crash or proxy error. Retry once.
-        warn "Error: $request->{_rc} '$request->{_msg}', retrying";
-        $request = $self->{agent}->request(
-            POST "$self->{cats_url}/", %{$headers // {}}, Content => $params);
+
+    my @delays = (1, 3, 10);  # in sec
+
+    for my $attempt (0 .. $max_retries) {
+        my $response = $self->{agent}->request(
+            POST "$self->{cats_url}/",
+            %{$headers // {}},
+            Content => $params
+        );
+
+        return decode_json($response->content) if $response->{_rc} == 200;
+
+        # Retries 502, 503, 504, connect, resolv issues
+        if ($attempt < $max_retries &&
+            ($response->{_rc} =~ /^(502|503|504)$/ ||
+             $response->{_msg} =~ /name resolution|connect|timeout/i)) {
+
+            my $delay = $delays[$attempt] // 10;
+            warn sprintf("Error: %d '%s', retrying in %ds (attempt %d/%d)",
+                $response->{_rc}, $response->{_msg}, $delay, $attempt+1, $max_retries);
+            sleep $delay;
+            next;
+        }
+
+        die sprintf("Error: %d '%s' at %s line %d",
+            $response->{_rc}, $response->{_msg}, __FILE__, __LINE__);
     }
-    die "Error: $request->{_rc} '$request->{_msg}'" unless $request->{_rc} == 200;
-    decode_json($request->content);
 }
+
+# obsolete v.
+# sub get_json {
+#     my ($self, $params, $headers) = @_;
+#     suppress_certificate_check if $self->{no_certificate_check};
+#
+#     push @$params, json => 1;
+#     my $request = $self->{agent}->request(
+#         POST "$self->{cats_url}/", %{$headers // {}}, Content => $params);
+#     if ($request->{_rc} == 502) {
+#         # May be intermittent crash or proxy error. Retry once.
+#         warn "Error: $request->{_rc} '$request->{_msg}', retrying";
+#         $request = $self->{agent}->request(
+#             POST "$self->{cats_url}/", %{$headers // {}}, Content => $params);
+#     }
+#     die "Error: $request->{_rc} '$request->{_msg}'" unless $request->{_rc} == 200;
+#     decode_json($request->content);
+# }
 
 sub auth {
     my ($self) = @_;
