@@ -169,13 +169,13 @@ sub insert {
     @$training_contests or return msg(1092);
 
     my $aid = new_id;
-    #my $new_settings = $p{save_settings} ? CATS::Settings::as_storable : '';
+    my $new_settings = $p{save_settings} ? CATS::Settings::as_json($self->{settings}) : '{}';
     $dbh->do(q~
         INSERT INTO accounts (
             id, srole, passwd, settings, ~ . join (', ', param_names()) . q~
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)~, {},
         $aid, $CATS::Privileges::srole_user, $self->{password1} // $self->{passwd},
-        $self->{settings} || '', $self->values
+        $new_settings, $self->values
     );
     $self->{id} = $aid;
     add_to_contest(contest_id => $_->{id}, account_id => $aid, is_ooc => 1)
