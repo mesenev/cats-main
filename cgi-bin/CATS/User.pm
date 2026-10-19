@@ -6,6 +6,7 @@ use warnings;
 use Encode;
 use Storable;
 
+use JSON::XS qw(encode_json);
 use CATS::Config;
 use CATS::Constants;
 use CATS::Contest::Participate qw(get_registered_contestant is_jury_in_contest);
@@ -260,8 +261,17 @@ sub edit_save {
 
     $u->{locked} = $p->{locked} ? 1 : 0 if $is_root;
 
-    $new_settings =  Storable::nfreeze($new_settings);
-    $u->{settings} = $new_settings if $new_settings ne ($old_user->{frozen_settings} // '');
+    my $new_settings_json =
+    $new_settings && ref $new_settings eq 'HASH'
+        ? encode_json($new_settings)
+        : '{}';
+
+    my $old_settings_raw = $old_user
+    ? ($old_user->{frozen_settings} // $old_user->{settings} // '')
+    : '';
+
+    $u->{settings} = $new_settings_json
+    if $new_settings_json ne $old_settings_raw;
 
     if ($id) {
         $dbh->do(_u $sql->update('accounts', { %$u }, { id => $id }));
