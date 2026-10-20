@@ -63,7 +63,6 @@ if [[ $step =~ (^|,)2(,|$) || $step == "*" ]]; then
 		DBI::Profile
 		DBD::Pg
 		Algorithm::Diff
-		Apache2::Request
 		Archive::Zip
 		Authen::Passphrase
 		File::Copy::Recursive
@@ -77,6 +76,10 @@ if [[ $step =~ (^|,)2(,|$) || $step == "*" ]]; then
 		Text::MultiMarkdown
 		XML::Parser::Expat
 	)
+	# Apache2::Request is intentionally not installed via cpanm: building it
+	# from the libapreq2 CPAN tarball fails to configure against this box's
+	# Apache dev headers. libapache2-request-perl (apt, step 1) already
+	# provides the same Perl bindings, prebuilt against the correct headers.
 	sudo cpanm --notest -S ${cpan_packages[@]}
 	echo "ok"
 else
@@ -85,17 +88,12 @@ fi
 
 echo "3. Install formal input... "
 if [[ $step =~ (^|,)3(,|$) || $step == "*" ]]; then
-	formal_input='https://github.com/downloads/klenin/cats-main/FormalInput.tgz'
-	wget $formal_input -O fi.tgz
-	tar -xzvf fi.tgz
-	pushd FormalInput/
-	perl Makefile.PL
-	make
-	sudo make install
-	popd
-	rm fi.tgz
-	rm -rf FormalInput
-	echo "ok"
+	# FormalInput's source, https://github.com/downloads/klenin/cats-main/FormalInput.tgz,
+	# is a GitHub "downloads" link, a feature GitHub removed around 2012; the
+	# URL 404s and there is no known replacement source yet. It's an optional
+	# soft dependency (cgi-bin/cats-problem/CATS/Problem/Parser.pm degrades
+	# gracefully if it's missing), so skip rather than fail the whole script.
+	echo "skip (dead upstream URL, see comment in deploy.bash)"
 else
 	echo "skip"
 fi
