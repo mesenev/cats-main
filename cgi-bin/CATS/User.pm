@@ -170,7 +170,7 @@ sub insert {
     @$training_contests or return msg(1092);
 
     my $aid = new_id;
-    my $new_settings = $p{save_settings} ? CATS::Settings::as_json($self->{settings}) : '{}';
+    my $new_settings = $self->{settings} // '{}';
     $dbh->do(q~
         INSERT INTO accounts (
             id, srole, passwd, settings, ~ . join (', ', param_names()) . q~
