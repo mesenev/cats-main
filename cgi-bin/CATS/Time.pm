@@ -33,6 +33,10 @@ sub format_diff {
         my ($days, $hours, $minutes, $seconds) = ($1, $3, $4, $5);
         $dt = $days + ($hours * 3600 + $minutes * 60 + $seconds) / 86400;
     }
+    elsif (!ref($dt) && $dt =~ /^(\d+) days?$/) {
+        # Postgres omits the time part entirely for a whole-day interval.
+        $dt = $1;
+    }
     elsif (!ref($dt) && $dt =~ /^(\d+):(\d+):(\d+(?:\.\d+)?)$/) {
         my ($hours, $minutes, $seconds) = ($1, $2, $3);
         $dt = ($hours * 3600 + $minutes * 60 + $seconds) / 86400;
