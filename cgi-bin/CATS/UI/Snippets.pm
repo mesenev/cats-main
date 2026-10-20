@@ -312,7 +312,7 @@ sub users_snippets_frame {
             JVS.problem_id = PS.problem_id AND
             JVS.snippet_name = PS.snippet_name AND
             JVS.ca_id = ?
-        WHERE 1 = 1~ . $lv->maybe_where_cond . $lv->order_by
+        WHERE 1 = 1 ~ . $lv->maybe_where_cond . $lv->order_by
     );
     $sth->execute($cid, $user->{ca_id}, $lv->where_params);
 

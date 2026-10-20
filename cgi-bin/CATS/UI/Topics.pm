@@ -147,7 +147,7 @@ sub topics_frame {
     my $sth = $dbh->prepare(q~
         SELECT T.id, T.code_prefix, T.name, T.description, T.is_hidden
         FROM topics T
-        WHERE T.contest_id = ?~ . $lv->maybe_where_cond . $lv->order_by);
+        WHERE T.contest_id = ? ~ . $lv->maybe_where_cond . $lv->order_by);
     $sth->execute($cid, $lv->where_params);
 
     my $fetch_record = sub {
