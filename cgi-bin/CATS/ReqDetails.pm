@@ -68,8 +68,8 @@ sub get_contest_tests {
             WHERE PS.id = T.generator_id) AS gen_name,
             T.descr, T.param, T.gen_group, T.snippet_name,
             T.in_file_size AS input_file_size, T.out_file_size AS answer_file_size,
-            CAST(LEFT(T.in_file, $cut) AS VARCHAR($cut)) AS input,
-            CAST(LEFT(T.out_file, $cut) AS VARCHAR($cut)) AS answer
+            encode(substring(T.in_file from 1 for $cut), 'hex') AS input,
+            encode(substring(T.out_file from 1 for $cut), 'hex') AS answer
             ~ : ());
     my $tests = $c->{tests} = $fields ?
         $dbh->selectall_arrayref(qq~
