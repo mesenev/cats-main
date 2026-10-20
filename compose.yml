@@ -1,34 +1,44 @@
 services:
   main:
     container_name: cats-main
-    env_file: .env
     build:
       context: ./
       dockerfile: dockerfiles/cats-main.dockerfile
     volumes:
       - type: bind
-        source: ./dockerfiles/main/Config.pm
+        source: ./
+        target: /app
+      - type: bind
+        source: ~/Config-judge.pm
         target: /app/cgi-bin/cats-problem/CATS/Config.pm
       - v-main-apache-log:/var/log/apache2
+    env_file:
+      - .env
     ports:
-      - "${CATS_MAIN_HOST_PORT}:80"
+      - "127.0.0.1:${CATS_MAIN_HOST_PORT}:80"
     restart: unless-stopped
     depends_on:
-      - postgres
+      database:
+        condition: service_healthy
+        restart: true
 
-  postgres:
-    container_name: cats-postgres
-    build:
-      context: ./
-      dockerfile: dockerfiles/postgres.dockerfile
-    env_file: .env
-    ports:
-      - "${POSTGRES_HOST_PORT}:5432"
+  database:
+    container_name: cats-database
+    image: postgres:18
     volumes:
-      - v-postgres-data:/var/lib/postgresql/17/main
-      - v-postgres-conf:/etc/postgresql/17/main
-      - v-postgres-log:/var/log/postgresql
+      - v-database-data:/var/lib/postgresql
+      - ./postgres-etc:/etc/postgresql
     restart: unless-stopped
+    command: postgres -c config_file=/etc/postgresql/18/main/postgresql.conf
+    stop_grace_period: 30s
+    environment:
+      PGDATA: /var/lib/postgresql/18/main
+    env_file:
+      - .env
+    expose:
+      - "5432"
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -39,18 +49,24 @@ services:
   judge:
     container_name: cats-judge
     privileged: true
+    cgroup: host
     image: registry.mesenev.ru/mesenev/cats-judge:latest
-    env_file: .env
+    env_file:
+      - .env
+    volumes:
+      - type: bind
+        source: ./cats-judge
+        target: /app
+      - ~/local-judge.xml:/app/config/local.xml:ro
+      - ~/Config-judge.pm:/app/lib/cats-problem/CATS/Config.pm:ro
+      - /judge-run:/app/run
+      - /judge-cache:/app/cache
     depends_on:
-      postgres:
+      database:
         condition: service_healthy
         restart: true
     restart: always
 
 volumes:
   v-main-apache-log:
-  v-postgres-data:
-  v-postgres-conf:
-  v-postgres-log:
-  v-problems:
-  v-media:
+  v-database-data:
