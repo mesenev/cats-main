@@ -37,7 +37,7 @@ sub format_diff {
         my ($hours, $minutes, $seconds) = ($1, $2, $3);
         $dt = ($hours * 3600 + $minutes * 60 + $seconds) / 86400;
     }
-    if (!ref($dt) && $dt !~ /^-?\d+(?:\.\d+)?$/) {
+    if (!ref($dt) && $dt !~ /^-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?$/) {
         return '';
     }
 
