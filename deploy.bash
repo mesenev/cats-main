@@ -180,6 +180,7 @@ PerlSetEnv CATS_DIR ${CATS_ROOT}/cgi-bin/
 
 	Alias /cats/ "${CATS_ROOT}/cgi-bin/"
 	Alias /cats "${CATS_ROOT}/cgi-bin/"
+	Alias / "${CATS_ROOT}/cgi-bin/"
 </VirtualHost>
 EOF
 )
@@ -208,7 +209,7 @@ fi
 
 echo "6. Download JS... "
 if [[ $step =~ (^|,)6(,|$) || $step == "*" ]]; then
-    perl -e 'install_js.pl --install=all'
+	perl install_js.pl --install=all
 	cd $CATS_ROOT
 	echo "ok"
 else
