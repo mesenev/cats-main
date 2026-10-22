@@ -55,4 +55,7 @@ RUN a2ensite 000-cats && a2dissite 000-default \
 WORKDIR /app
 EXPOSE 80
 
-CMD ["apachectl", "-D", "FOREGROUND"]
+# Run apache2 itself as PID 1 so it receives docker's SIGTERM. Through the
+# apachectl script the signal never reached Apache: every stop/restart waited
+# the full 10s timeout and ended in SIGKILL (exit 137, "Unclean shutdown").
+CMD ["/bin/sh", "-c", ". /etc/apache2/envvars && mkdir -p \"$APACHE_RUN_DIR\" \"$APACHE_LOCK_DIR\" && exec /usr/sbin/apache2 -D FOREGROUND"]
