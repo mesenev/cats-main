@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Data::Dumper;
+use DBD::Pg qw(:pg_types);
 
 use CATS::DeBitmaps;
 use CATS::Config;
@@ -155,9 +156,12 @@ sub is_problem_uptodate {
 sub save_logs {
     my ($job_id, $dump) = @_;
 
-    $dbh->do(q~
-        INSERT INTO logs (id, dump, job_id) VALUES (?, ?, ?)~, undef,
-        new_id, $dump, $job_id);
+    my $sth = $dbh->prepare(q~
+        INSERT INTO logs (id, dump, job_id) VALUES (?, ?, ?)~);
+    $sth->bind_param(1, new_id);
+    $sth->bind_param(2, $dump, { pg_type => DBD::Pg::PG_BYTEA });
+    $sth->bind_param(3, $job_id);
+    $sth->execute;
 
     $dbh->commit;
 }
@@ -409,7 +413,7 @@ sub set_request_state {
     if (_has_state_params($p, $cats::st_awaiting_verification, qw(account_id problem_id contest_id))) {
         # Latest AW supercedes previous ones.
         $dbh->do(q~
-            UPDATE reqs R SET R.state = ?
+            UPDATE reqs R SET state = ?
             WHERE
                 R.account_id = ? AND R.contest_id = ? AND R.problem_id = ? AND
                 R.state = ?~, undef,
@@ -811,15 +815,23 @@ sub insert_req_details {
     eval { $dbh->do(_u $sql->insert(req_details => $rd)); };
     if (my $err = $@) {
         # Maybe retry from judge after crash.
-        $err =~ /UNIQUE.*REQ_DETAILS/ or die $err;
+        $err =~ /23505|duplicate key.*req_details/i or die $err;
         warn 'Duplicate req_details';
+        # Postgres aborts the whole transaction on error; clear it before returning.
+        $dbh->rollback;
         return 1;
     }
 
-    $dbh->do(q~
-        INSERT INTO solution_output (req_id, test_rank, output, output_size, create_time)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)~, undef,
-        $p{req_id}, $p{test_rank}, $output, $output_size) if $output_size;
+    if ($output_size) {
+        my $sth = $dbh->prepare(q~
+            INSERT INTO solution_output (req_id, test_rank, output, output_size, create_time)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)~);
+        $sth->bind_param(1, $p{req_id});
+        $sth->bind_param(2, $p{test_rank});
+        $sth->bind_param(3, $output, { pg_type => DBD::Pg::PG_BYTEA });
+        $sth->bind_param(4, $output_size);
+        $sth->execute;
+    }
 
     $dbh->commit;
     1;

@@ -817,6 +817,8 @@ sub insert_req_details {
         # Maybe retry from judge after crash.
         $err =~ /23505|duplicate key.*req_details/i or die $err;
         warn 'Duplicate req_details';
+        # Postgres aborts the whole transaction on error; clear it before returning.
+        $dbh->rollback;
         return 1;
     }
 
