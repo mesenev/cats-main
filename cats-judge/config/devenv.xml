@@ -68,7 +68,7 @@
 <!-- G++ -->
 <de
     code="102"
-    compile='"#gnu_cpp" -std=c++17#gcc_stack -O3 "%full_name" -o "%name.exe"'
+    compile='"#gnu_cpp" -std=c++23#gcc_stack -O3 "%full_name" -o "%name.exe"'
     run='"%name.exe"'
     run_interactive='"%name.exe"'
     runfile='%name.exe'
