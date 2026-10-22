@@ -34,7 +34,8 @@ sub init {
             ? JSON::XS::decode_json($enc_settings)
             : {}
     } || do {
-        warn "[SETTINGS] Reset for uid=$uid: invalid data (old Storable or corrupted)";
+        # A stale or foreign browser cookie is routine; only bad stored data is worth a warning.
+        warn "[SETTINGS] Reset for uid=$uid: invalid data (old Storable or corrupted)" if $uid;
         {};
     };
     
@@ -47,7 +48,7 @@ sub lang { $settings->{lang} || 'ru' }
 sub as_cookie {
     $uid && lang() eq 'ru' ? undef : (
         -name => 'settings',
-        -value => encode_base64($uid ? Storable::nfreeze({ lang => lang() }) : $enc_settings),
+        -value => encode_base64($uid ? JSON::XS::encode_json({ lang => lang() }) : $enc_settings),
         -expires => '+1h');
 }
 
