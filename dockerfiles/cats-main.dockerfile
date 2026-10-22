@@ -34,6 +34,14 @@ RUN cpanm --notest \
 # deploy.bash's own step 3 has the identical dead link, silently swallowed there
 # since that script has no `set -e`. Needs a real fix (new source/mirror) later.
 
+# Ubuntu's hunspell-ru ships ru_RU in KOI8-R, but CATS::Problem::Spell passes
+# UTF-8 words, so every Russian word was flagged. Convert it in place (offline,
+# no download). Kept after the cpanm layer so it doesn't invalidate that cache.
+RUN cd /usr/share/hunspell \
+    && iconv -f KOI8-R -t UTF-8 ru_RU.dic > ru_RU.dic.utf8 && mv ru_RU.dic.utf8 ru_RU.dic \
+    && iconv -f KOI8-R -t UTF-8 ru_RU.aff | sed 's/^SET KOI8-R/SET UTF-8/' > ru_RU.aff.utf8 \
+    && mv ru_RU.aff.utf8 ru_RU.aff
+
 # App code (cgi-bin, css, js, static, download, images, docs, tt) is bind-mounted
 # into /app at runtime, not baked into the image. The vhost only needs the path
 # layout, not the files themselves, so it can be set up at build time.
