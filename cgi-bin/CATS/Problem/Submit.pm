@@ -176,7 +176,6 @@ sub can_submit {
 
 sub problems_submit {
     my ($p) = @_;
-    warn "problem submit fired";
     my $pid = $p->{problem_id} or return msg(1012);
     $user->{is_participant} or return msg(1116);
 

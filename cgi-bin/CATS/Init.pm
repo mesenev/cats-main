@@ -79,9 +79,6 @@ sub init_contest {
     my ($p) = @_;
 
     use Data::Dumper;
-    warn "[INIT-CONTEST] p->{cid}='$p->{cid}' | p->{clist}=",
-         (ref $p->{clist} eq 'ARRAY' ? $p->{clist}[0] : 'not_array'),
-         " | cpid='$p->{cpid}' | settings_cid='$settings->{contest_id}'";
     $cid = $p->{cid} || $p->{clist}->[0] || extract_cid_from_cpid($p) || $settings->{contest_id} || '';
     if ($contest && ref $contest ne 'CATS::Contest') {
         warn "Strange contest: $contest from ", $ENV{HTTP_REFERER} || '';

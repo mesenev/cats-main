@@ -55,7 +55,6 @@ sub _add_problem_to_contest {
 
 sub _prepare_move {
     my ($pid, $to_contest) = @_;
-    warn "_prepare_move call with pid: " . $pid;
     $pid or return msg(1012);
     is_jury_in_contest(contest_id => $to_contest) or return msg(1135);
     my $problem = $dbh->selectrow_hashref(q~
