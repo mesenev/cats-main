@@ -24,3 +24,13 @@ RUN apt-get update \
 # Built from python-jit.dockerfile; see there for how to build and ship it.
 COPY --from=python-jit:3.15.1 /opt/python3.15 /opt/python3.15
 RUN /opt/python3.15/bin/python3.15 -c 'import sys, ssl, sqlite3, numpy, scipy, requests; assert sys._jit.is_enabled()'
+
+# Bake the same DE settings into the image's own config, for judges that run
+# it without bind-mounting /app (prod's judge mounts /app, so this is unused there).
+RUN sed -i \
+        -e 's|<define name="#python" de_code_autodetect="502" value="[^"]*" />|<define name="#python" de_code_autodetect="502" value="/opt/python3.15/bin/python3.15" />|' \
+        -e 's|<define name="#pypy" de_code_autodetect="510" value="[^"]*" />|<define name="#pypy" de_code_autodetect="510" value="/usr/bin/pypy3" />|' \
+        -e 's|<de code="510" enabled="0" />|<de code="510" enabled="1" />|' \
+        /app/config/autodetect.xml \
+    && grep -q 'value="/opt/python3.15/bin/python3.15"' /app/config/autodetect.xml \
+    && grep -q '<de code="510" enabled="1" />' /app/config/autodetect.xml
