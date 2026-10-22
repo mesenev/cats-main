@@ -6,33 +6,6 @@
 # Replace this with a from-scratch build once cats-judge/Dockerfile reproduces
 # prod's judge (it currently differs: render.py-baked config, no numpy/scipy).
 
-# CPython 3.15 with the experimental JIT, for DE 502 (Python). Built in its own stage on
-# the same Debian release as the judge image so the result runs there as-is;
-# the JIT's build step needs LLVM 21, which bookworm only gets from apt.llvm.org.
-FROM debian:bookworm AS python-jit
-ARG PY_VERSION=3.15.1
-ARG PY_SHA256=673ae7232d84c894729882c8257d300ef2d26523911bfd3917ec8ce7f526f99b
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential ca-certificates wget gnupg xz-utils python3 \
-        libssl-dev libffi-dev zlib1g-dev libbz2-dev liblzma-dev libsqlite3-dev \
-        libreadline-dev libncurses-dev libgdbm-dev uuid-dev \
-    && wget -qO /etc/apt/trusted.gpg.d/apt.llvm.org.asc https://apt.llvm.org/llvm-snapshot.gpg.key \
-    && echo "deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-21 main" > /etc/apt/sources.list.d/llvm.list \
-    && apt-get update && apt-get install -y --no-install-recommends clang-21 llvm-21
-WORKDIR /src
-RUN wget -q https://www.python.org/ftp/python/${PY_VERSION}/Python-${PY_VERSION}.tar.xz \
-    && echo "${PY_SHA256}  Python-${PY_VERSION}.tar.xz" | sha256sum -c - \
-    && tar xJf Python-${PY_VERSION}.tar.xz
-# --enable-experimental-jit=yes builds the JIT and turns it on by default;
-# PGO + LTO make the interpreter itself faster, at the cost of a slow build.
-RUN cd Python-${PY_VERSION} \
-    && ./configure --prefix=/opt/python3.15 --enable-experimental-jit=yes \
-        --enable-optimizations --with-lto \
-    && make -j"$(nproc)" && make install
-# Fail the build rather than ship an interpreter whose JIT is off.
-RUN /opt/python3.15/bin/python3.15 -c 'import sys; assert sys._jit.is_enabled(), "JIT not enabled"' \
-    && /opt/python3.15/bin/python3.15 -m pip install --no-cache-dir --only-binary=:all: numpy scipy requests
-
 FROM registry.mesenev.ru/mesenev/cats-judge@sha256:c8e707f42acec4a73a85cebea51ff22c08dac5bff9b35396dce10c902dcafbe3
 
 # Problem lint/check scripts run under #python, so python3.15 carries numpy,
@@ -48,5 +21,6 @@ RUN apt-get update \
         libncursesw6 libgdbm6 libuuid1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=python-jit /opt/python3.15 /opt/python3.15
+# Built from python-jit.dockerfile; see there for how to build and ship it.
+COPY --from=python-jit:3.15.1 /opt/python3.15 /opt/python3.15
 RUN /opt/python3.15/bin/python3.15 -c 'import sys, ssl, sqlite3, numpy, scipy, requests; assert sys._jit.is_enabled()'
