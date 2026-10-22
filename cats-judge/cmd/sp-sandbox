@@ -1,0 +1,116 @@
+#!/usr/bin/perl
+# Drop-in replacement for the spawner (`sp`) that runs every program it starts
+# inside a bubblewrap sandbox. judge.pl builds the same command line as for
+# `sp`; this script rewrites each program `app args...` into
+#   sp-sandbox-shim bwrap <sandbox options> -- app args...
+# and execs the real `sp`, so time/memory limits, redirects, pipes between
+# interactive programs and the JSON report all work as before.
+#
+# Each sandboxed program gets:
+#  - a read-only view of the whole filesystem, writable only in its working
+#    (run) directory;
+#  - fresh /tmp, /var/tmp and /dev/shm that are discarded when it exits, so
+#    nothing it writes there survives into the next run;
+#  - the judge's secrets hidden: DB config, judge config, problem cache (all
+#    test answers), stored solutions and logs, and secret environment variables;
+#  - no capabilities and its own PID/IPC/UTS namespaces (it can neither
+#    remount, mount devices nor see or signal the judge);
+#  - no network at all for contestant solutions (runs judge.pl starts with
+#    -active-connection-count=0). Compilers, checkers and linters keep the
+#    network: they are problem-author code, and some (e.g. a lint that checks
+#    a GitHub URL) need it.
+use strict;
+use warnings;
+
+use Cwd qw(getcwd);
+use FindBin qw($RealBin);
+
+my $sp = "$RealBin/sp";
+my $shim = "$RealBin/sp-sandbox-shim";
+my $bwrap = '/usr/bin/bwrap';
+
+# The sandbox's own processes: the shim, bwrap and bwrap's PID-namespace init.
+my $overhead_processes = 3;
+
+my @hidden_dirs = map "$RealBin/../$_", qw(config cache solutions log results tmp);
+my @hidden_files = (
+    "$RealBin/../lib/cats-problem/CATS/Config.pm",
+    "$RealBin/../.env",
+    "$RealBin/../judge.lock",
+);
+my $secret_env_rx = qr/^POSTGRES_|^PG[A-Z]+$|PASSW|SECRET|TOKEN|CREDENTIAL|^SP_PASSWORD$/i;
+
+sub is_option { $_[0] eq '' || $_[0] =~ /^-/ }
+
+my @args = @ARGV;
+
+# Global options come first; with --separator=//, programs follow as
+# `--// <program options> app args...` segments, otherwise as `app args...`.
+my (@global, $separator);
+while (@args && is_option($args[0])) {
+    # The program separator also starts with '-'; it ends the global options.
+    last if defined $separator && $args[0] eq "--$separator";
+    my $a = shift @args;
+    ($separator) = $a =~ /^--separator=(.+)$/ if !defined $separator;
+    push @global, $a;
+}
+
+my @programs;
+if (defined $separator) {
+    my $sep = "--$separator";
+    for my $a (@args) {
+        if ($a eq $sep) { push @programs, []; next; }
+        @programs or die "sp-sandbox: expected '$sep' before '$a'\n";
+        push @{$programs[-1]}, $a;
+    }
+}
+elsif (@args) {
+    @programs = ([ @args ]);
+}
+
+# Nothing to run (e.g. `sp` without arguments prints usage): pass through.
+exec $sp, @ARGV or die "sp-sandbox: exec $sp: $!\n" if !@programs;
+
+# Never fall back to running unsandboxed.
+-x $bwrap or die "sp-sandbox: $bwrap not found; install bubblewrap\n";
+
+my $is_solution = grep $_ eq '-active-connection-count=0', @global;
+my %env_defs = map /^-D=([^=]+)=/ ? ($1 => 1) : (), @global;
+
+for (@global) {
+    s/^(-active-process-count=)(\d+)$/$1 . ($2 + $overhead_processes * @programs)/e;
+}
+
+my $cwd = getcwd() // die "sp-sandbox: getcwd: $!\n";
+
+my @bwrap_opts = (
+    '--ro-bind', '/', '/',
+    '--dev', '/dev',
+    '--proc', '/proc',
+    '--tmpfs', '/tmp',
+    (-d '/var/tmp' ? ('--tmpfs', '/var/tmp') : ()),
+    (map { -d $_ ? ('--tmpfs', $_) : () } @hidden_dirs),
+    (map { -e $_ ? ('--ro-bind', '/dev/null', $_) : () } @hidden_files),
+    '--bind', $cwd, $cwd,
+    '--chdir', $cwd,
+    '--unshare-pid', '--unshare-ipc', '--unshare-uts',
+    ($is_solution ? '--unshare-net' : ()),
+    '--die-with-parent',
+    '--cap-drop', 'ALL',
+    (map { /$secret_env_rx/ && !$env_defs{$_} ? ('--unsetenv', $_) : () } sort keys %ENV),
+);
+
+my @new_args = @global;
+for my $p (@programs) {
+    my @prog = @$p;
+    my @opts;
+    push @opts, shift @prog while @prog && is_option($prog[0]);
+    my ($app, @app_args) = @prog;
+    defined $app or die "sp-sandbox: no application in program segment\n";
+    # sp resolves a bare name against the working directory; bwrap would search PATH.
+    $app = "./$app" if $app !~ m{/} && -e "$cwd/$app";
+    push @new_args, (defined $separator ? "--$separator" : ()), @opts,
+        $shim, $bwrap, @bwrap_opts, '--', $app, @app_args;
+}
+
+exec $sp, @new_args or die "sp-sandbox: exec $sp: $!\n";

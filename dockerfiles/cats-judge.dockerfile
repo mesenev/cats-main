@@ -12,11 +12,12 @@ FROM registry.mesenev.ru/mesenev/cats-judge@sha256:c8e707f42acec4a73a85cebea51ff
 # scipy and requests (problem 43442's lint_repo.py verifies a submitted GitHub
 # commit URL through the GitHub API). The system python3 gets requests too, so
 # pointing #python back at /usr/bin/python3 remains a working rollback.
-# pypy3 backs DE 510 (PyPy 3). The libraries are python3.15's runtime deps.
+# pypy3 backs DE 510 (PyPy 3). bubblewrap is for cmd/sp-sandbox. The libraries
+# are python3.15's runtime deps.
 # The host's cats-judge/config/autodetect.xml points #python (DE 502) at
 # /opt/python3.15/bin/python3.15 and enables DE 510.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3-requests pypy3 \
+    && apt-get install -y --no-install-recommends python3-requests pypy3 bubblewrap \
         libssl3 libffi8 zlib1g libbz2-1.0 liblzma5 libsqlite3-0 libreadline8 \
         libncursesw6 libgdbm6 libuuid1 \
     && rm -rf /var/lib/apt/lists/*

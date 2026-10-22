@@ -1,0 +1,5 @@
+<!-- To run every compiler, solution and checker through cmd/sp-sandbox (needs
+     bubblewrap in the judge image), add this define to config/local.xml.
+     Redefine #spawner itself: defines are expanded when loaded, so changing
+     #spawner_name here would not affect #spawner, set earlier in autodetect.xml. -->
+<define name="#spawner" value="%workdir/cmd/sp-sandbox" />

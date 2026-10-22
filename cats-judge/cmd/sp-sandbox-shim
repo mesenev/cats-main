@@ -1,0 +1,10 @@
+#!/bin/sh
+# Runs between sp and bwrap (see sp-sandbox). bwrap reports a program killed by
+# a signal as exit code 128+N; re-raise that signal on ourselves so sp sees the
+# same "terminated by signal" result it would without the sandbox.
+"$@"
+rc=$?
+if [ "$rc" -gt 128 ] && [ "$rc" -lt 160 ]; then
+    kill -"$((rc - 128))" $$
+fi
+exit "$rc"
