@@ -54,8 +54,8 @@ my $modules = [
     },
     {
         name => 'flot',
-        url => 'http://www.flotcharts.org/downloads/flot-0.8.3.zip',
-        src => 'flot/jquery.flot.min.js',
+        # flotcharts.org no longer serves its download zips.
+        url => 'https://cdn.jsdelivr.net/npm/flot@0.8.3/jquery.flot.min.js',
     },
     {
         name => 'jquery',
@@ -75,7 +75,7 @@ my $modules = [
     },
     {
         name => 'hunspell_aff',
-        url => 'https://github.com/LibreOffice/dictionaries/blob/master/ru_RU/ru_RU.aff',
+        url => 'https://github.com/LibreOffice/dictionaries/raw/master/ru_RU/ru_RU.aff',
     },
     {
         name => 'hunspell_dic',
