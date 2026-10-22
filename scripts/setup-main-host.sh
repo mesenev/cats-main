@@ -13,6 +13,12 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 ./deploy.bash --step 4,6
 
+# deploy.bash has no `set -e` and reports "ok" even when install_js.pl dies,
+# so check the result directly rather than trusting its exit status.
+for f in jquery.min.js ace MathJax; do
+    [[ -e js/lib/$f ]] || { echo "js/lib/$f missing: JS install failed" >&2; exit 1; }
+done
+
 chgrp -R 33 cgi-bin css download images static tt
 chmod -R g+r cgi-bin
 chmod g+rw static tt download/{,att,f,img,pr,vis} cgi-bin/rank_cache{,/r} cgi-bin/repos

@@ -6,7 +6,7 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false upd
 
 RUN apt-get install -y \
     sudo dnsutils \
-    wget \
+    wget unzip \
     curl \
     git \
     build-essential \
