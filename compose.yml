@@ -50,7 +50,9 @@ services:
     container_name: cats-judge
     privileged: true
     cgroup: host
-    image: registry.mesenev.ru/mesenev/cats-judge:latest
+    build:
+      context: ./dockerfiles
+      dockerfile: cats-judge.dockerfile
     env_file:
       - .env
     volumes:
