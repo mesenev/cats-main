@@ -10,6 +10,7 @@ FROM registry.mesenev.ru/mesenev/cats-judge@sha256:c8e707f42acec4a73a85cebea51ff
 # Problem lint/check scripts run under the system python3. numpy and scipy are
 # already in the base image; requests is not (problem 43442's lint_repo.py
 # verifies a submitted GitHub commit URL through the GitHub API).
+# pypy3 backs DE 510 (PyPy 3); enable it in the host's config/autodetect.xml.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3-requests \
+    && apt-get install -y --no-install-recommends python3-requests pypy3 \
     && rm -rf /var/lib/apt/lists/*
