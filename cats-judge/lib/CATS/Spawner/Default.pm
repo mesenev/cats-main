@@ -191,6 +191,13 @@ sub _run {
         $self->parse_json_report($report, $file) :
         $self->parse_legacy_report($report, $file);
 
+    # A wrapping spawner (cmd/sp-sandbox) reports its own launcher as the
+    # application; name the programs the judge asked for instead.
+    my $items = $parsed_report->items // [];
+    if (@$items == @programs) {
+        $items->[$_]->{application} = $programs[$_]->application for 0 .. $#programs;
+    }
+
     chdir($cur_dir) or return $report->error("failed to change directory back to: $cur_dir") if $run_dir;
 
     $parsed_report->write_to_log($opts->{logger})
