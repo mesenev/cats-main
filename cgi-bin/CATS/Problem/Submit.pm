@@ -6,6 +6,7 @@ use warnings;
 use CATS::Constants;
 use CATS::DB qw(:DEFAULT $db);
 use CATS::DevEnv;
+use CATS::DevEnv::Detect;
 use CATS::Globals qw($cid $contest $is_jury $t $uid $user);
 use CATS::IP;
 use CATS::Messages qw(msg res_str);
@@ -97,14 +98,33 @@ sub _de_by_code {
         $_[0]);
 }
 
+# 'by_extension' is the form's "Auto" choice: pick among the DEs this problem
+# allows in this contest, by the source's content (CATS::DevEnv::Detect) and
+# file extension. An extension within the detected language family is the
+# student's explicit choice (e.g. .pypy, or .h for a link to not compile).
+sub _auto_de {
+    my ($file, $source_text, $cpid) = @_;
+    my $des = _get_DEs($cid)->{des};
+    my %problem_des = map { $_ => 1 } @{$dbh->selectcol_arrayref(q~
+        SELECT de_id FROM contest_problem_des WHERE cp_id = ?~, undef, $cpid)};
+    $des = [ grep $problem_des{$_->{id}}, @$des ] if %problem_des;
+    return $des->[0] if @$des == 1;
+
+    my $ext_de = CATS::DevEnv->new({ des => $des })->by_file_extension($file);
+    my ($code, $info) = CATS::DevEnv::Detect::de_code($source_text, [ map $_->{code}, @$des ]);
+    defined $code or return $ext_de;
+    return $ext_de if $ext_de &&
+        grep $_ == $ext_de->{code}, @{$CATS::DevEnv::Detect::family_des{$info->{family}}};
+    (grep $_->{code} == $code, @$des)[0];
+}
+
 sub _prepare_de {
-    my ($p, $file, $cpid) = @_;
+    my ($p, $file, $cpid, $source_text) = @_;
     my $result = {};
 
     my $did = $p->{de_id} || _de_by_code($p->{de_code}) or return msg(1013);
     if ($did eq 'by_extension') {
-        my $de = CATS::DevEnv->new(_get_DEs($cid))->by_file_extension($file)
-            or return msg(1013);
+        my $de = _auto_de($file, $source_text, $cpid) or return msg(1013);
         $did = $de->{id};
         $result->{de_name} = $de->{description};
     }
@@ -248,7 +268,7 @@ sub problems_submit {
         return msg(1137) if $prev_reqs_count >= $max_reqs;
     }
 
-    my ($did, $result) = _prepare_de($p, $file ? $file->remote_file_name : '', $cpid);
+    my ($did, $result) = _prepare_de($p, $file ? $file->remote_file_name : '', $cpid, $source_text);
     $t->param(%$result) if $t;
     $did or return (undef, $result);
     # Forbid repeated submissions of the identical code with the same DE.
