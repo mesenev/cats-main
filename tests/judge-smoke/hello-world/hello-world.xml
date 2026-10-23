@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CATS version="1.11">
+<Problem title="Hello, World!" lang="en" tlimit="1" mlimit="64"
+  inputFile="*STDIN" outputFile="*STDOUT">
+
+<ProblemStatement>
+<p>Print the line <code>Hello, World!</code>.</p>
+<p>This problem exists to smoke-test the judge: every supported language
+should be able to solve it.</p>
+</ProblemStatement>
+
+<InputFormat>
+<p>The input contains arbitrary text, which should be ignored.</p>
+</InputFormat>
+
+<OutputFormat>
+<p>Output exactly one line: <code>Hello, World!</code></p>
+</OutputFormat>
+
+<Checker name="check" src="check.py" style="testlib"/>
+<Solution name="sol" src="sol.c"/>
+
+<Test rank="1-3"><In src="%0n.in"/><Out src="%0n.ans"/></Test>
+
+<Sample rank="1">
+<SampleIn src="01.in"/>
+<SampleOut src="01.ans"/>
+</Sample>
+
+</Problem>
+</CATS>
