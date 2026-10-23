@@ -48,6 +48,23 @@ RUN /usr/local/go/bin/go telemetry off \
     && /usr/local/go/bin/go build -o t.exe t.go && ./t.exe | grep -qx ok \
     && rm -rf t.go t.exe /tmp/go
 
+# numpy for pypy3 (DE 510), so numpy solutions work under PyPy as under
+# python3.15. Without it pypy3 finds Debian's CPython-only numpy in
+# /usr/lib/python3/dist-packages and fails at import. Debian's pypy3 has no pip
+# (ensurepip is stripped), so the wheel is unpacked into
+# /usr/local/lib/pypy3.9/dist-packages, which comes first on pypy3's sys.path.
+# Bytecode is compiled here because the sandbox's filesystem is read-only.
+ARG PYPY_NUMPY_WHL=numpy-1.26.4-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+ARG PYPY_NUMPY_URL=https://files.pythonhosted.org/packages/8e/02/570545bac308b58ffb21adda0f4e220ba716fb658a63c151daecc3293350/${PYPY_NUMPY_WHL}
+ARG PYPY_NUMPY_SHA256=95a7476c59002f2f6c590b9b7b998306fba6a5aa646b1e22ddfeaf8f78c3a29c
+RUN wget -q -O /tmp/${PYPY_NUMPY_WHL} ${PYPY_NUMPY_URL} \
+    && echo "${PYPY_NUMPY_SHA256}  /tmp/${PYPY_NUMPY_WHL}" | sha256sum -c - \
+    && mkdir -p /usr/local/lib/pypy3.9/dist-packages \
+    && unzip -q /tmp/${PYPY_NUMPY_WHL} -d /usr/local/lib/pypy3.9/dist-packages \
+    && rm /tmp/${PYPY_NUMPY_WHL} \
+    && pypy3 -m compileall -q /usr/local/lib/pypy3.9/dist-packages > /dev/null; \
+    cd /tmp && pypy3 -c 'import numpy, requests; assert numpy.__version__ == "1.26.4"; assert numpy.arange(4).sum() == 6'
+
 # Bake the same DE settings into the image's own config, for judges that run
 # it without bind-mounting /app (prod's judge mounts /app, so this is unused there).
 RUN sed -i \
