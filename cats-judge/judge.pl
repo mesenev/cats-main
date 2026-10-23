@@ -134,10 +134,13 @@ sub get_run_params {
 
     my $time_limit_sum = 0;
     my $safe = 1;
+    # Runtimes with their own threads (e.g. Go) declare run_processes in devenv.xml.
+    my $active_processes = 2;
 
     for my $r (@$rs) {
         my %limits = $src_proc->get_limits($r, $problem);
         $time_limit_sum += $limits{time_limit};
+        $active_processes = max($active_processes, $src_proc->property(run_processes => $r->{de_id}) // 0);
         next if $is_comp_modules;
 
         my $solution_opts;
@@ -169,7 +172,7 @@ sub get_run_params {
         idle_time_limit => $cfg->default_limits->{idle_time} // 1,
         stdout => '*null',
         active_connections => 0,
-        active_processes => 2,
+        active_processes => $active_processes,
         ($cfg->sp_user && !$safe ?
             (user => { name => $cfg->sp_user, password => $cfg->sp_password, }) : ()),
     };

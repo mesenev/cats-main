@@ -65,6 +65,7 @@ sub de_fields() { qw(
     run
     run_exit_code
     run_interactive
+    run_processes
     runfile
     safe
     validate

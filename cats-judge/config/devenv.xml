@@ -271,6 +271,7 @@
     code="404"
     compile='"#go" build -o "%name.exe" "%full_name" '
     run='"%name.exe"'
+    run_processes="8"
     run_interactive='"%name.exe"'
     runfile='%name.exe'
     generate='"%name.exe" %args'
