@@ -326,6 +326,14 @@
     check='"#python" %full_name %checker_args'
     extension='py'/>
 
+<!-- SQLite: the submission is SQL, run against the test's database by
+     cmd/sqlite_run.py (same behaviour as the std.sql.main module's launcher). -->
+<de
+    code="520"
+    compile=''
+    run='"#python" "#sqlite_run" "%full_name"'
+    extension='sql'/>
+
 <!-- Haskell -->
 <de
     code="503"

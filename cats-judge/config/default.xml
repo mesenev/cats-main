@@ -45,6 +45,7 @@
 
 <define name='#checker_args' value='"%test_answer" "%test_output" "%test_input"'/>
 <define name="#copy_cat" value="../copy_cat.pl"/>
+<define name="#sqlite_run" value="../cmd/sqlite_run.py"/>
 <define name="#gcc_stack" value=""/>
 <define name="#formal" value="%workdir/lib/cats-problem/CATS/Formal/Formal.pl"/>
 <define name="#spawner_name" value="sp" />
