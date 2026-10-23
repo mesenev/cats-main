@@ -15,6 +15,16 @@ ERR_UH = 3
 
 solution = sys.argv[1] if len(sys.argv) > 1 else 'solve.sql'
 
+# A problem with a solution module that has `main` (std.sql.main: launcher.py,
+# main="solve.sql") makes the judge save every submission as that main file
+# and run the module instead, whatever the submission's DE. Then the argument
+# is the problem's own Python harness: run it, exactly as the Python route does.
+if solution.endswith('.py'):
+    import runpy
+    sys.argv = [solution]
+    runpy.run_path(solution, run_name='__main__')
+    sys.exit(0)
+
 with (
     sqlite3.connect(":memory:") as con,
     open("test.sql") as sql,
