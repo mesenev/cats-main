@@ -45,6 +45,7 @@ use CATS::Spawner::Const ':all';
 use CATS::TestPlan;
 
 use Digest::MD5 qw(md5_hex);
+use Encode;
 use Digest::SHA qw(sha1_hex);
 
 use JSON::XS;
@@ -653,6 +654,21 @@ sub run_checker {
     [ $sp_report, $output, $checker_points ];
 }
 
+# The verdict alone doesn't say why a solution failed: log the end of its stderr.
+sub log_stderr_tail {
+    my ($file_name) = @_;
+    my ($max_bytes, $max_lines) = (2000, 10);
+    open my $f, '<', $file_name or return;
+    binmode $f;
+    my $size = -s $f or return;
+    seek $f, $size - $max_bytes, 0 if $size > $max_bytes;
+    read($f, my $tail, $max_bytes);
+    my @lines = split /\r?\n/, Encode::decode('UTF-8', $tail);
+    shift @lines if $size > $max_bytes; # Partial first line.
+    splice @lines, 0, -$max_lines if @lines > $max_lines;
+    log_msg("stderr (%d b):\n%s", $size, join '', map "  | $_\n", @lines);
+}
+
 sub save_output_prefix {
     my ($dest, $problem, $req) = @_;
     return if $dest->{output_size}; # Runtime error message
@@ -728,11 +744,12 @@ sub run_single_test {
             } else {
                 $result = $d->{result} = $get_tr_status->($tr) or return;
             }
+            my $stderr_file = File::Spec->catfile($cfg->rundir, $cfg->stderr_file);
             if ($result == $cats::st_runtime_error) {
                 $d->{checker_comment} = $solution_report->{exit_code};
-                my $stderr_file = File::Spec->catfile($cfg->rundir, $cfg->stderr_file);
                 ($d->{output}, $d->{output_size}) = $fu->load_file($stderr_file, $cfg->runtime_stderr_size);
             }
+            log_stderr_tail($stderr_file) if defined $d->{result};
 
             save_output_prefix($test_run_details->[$i], $problem, $r->[$i])
                 if !_is_competitive_run($problem->{run_method});
