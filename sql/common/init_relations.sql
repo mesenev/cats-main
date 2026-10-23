@@ -755,6 +755,7 @@ CREATE TABLE de_de_tags (
     de_id         INTEGER NOT NULL,
     tag_id        INTEGER NOT NULL,
 
+    CONSTRAINT de_de_tags_pk PRIMARY KEY (de_id, tag_id),
     CONSTRAINT de_de_tags_de_fk
         FOREIGN KEY (de_id) REFERENCES default_de(id) ON DELETE CASCADE,
     CONSTRAINT de_de_tags_tag_fk
@@ -765,6 +766,7 @@ CREATE TABLE contest_de_tags (
     contest_id    INTEGER NOT NULL,
     tag_id        INTEGER NOT NULL,
 
+    CONSTRAINT contest_de_tags_pk PRIMARY KEY (contest_id, tag_id),
     CONSTRAINT contest_de_tags_de_fk
         FOREIGN KEY (contest_id) REFERENCES contests(id) ON DELETE CASCADE,
     CONSTRAINT contest_de_tags_tag_fk
