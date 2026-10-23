@@ -18,6 +18,7 @@ sub new {
     $self->{validators} = $r{validators} // [];
     ref $self->{validators} eq 'ARRAY' or $self->{validators} = [ $self->{validators} ];
     $self->{$_} = $r{$_} for qw(after_load after_parse before_save default editor);
+    $self->{empty_is_null} = grep $CATS::Field::numeric{$_}, @{$self->{validators}};
     $self;
 }
 
@@ -62,6 +63,8 @@ sub load {
 
 sub save {
     my ($self, $value) = @_;
+    # An empty optional number is NULL: PostgreSQL rejects '' for numeric columns.
+    $value = undef if $self->{empty_is_null} && defined $value && $value eq '';
     $self->{before_save} ? $self->{before_save}->($value) : $value;
 }
 
@@ -105,11 +108,14 @@ sub json {
     $opts{allow_empty} ? \&json_allow_empty : \&json_nonempty;
 }
 
+# Validators of numeric fields; such a field saves an empty value as NULL.
+our %numeric;
+
 # Params:{ allow_empty, min, max }
 sub int_range {
     my (%opts) = @_;
     defined $opts{min} && defined $opts{max} or die;
-    sub {
+    _numeric(sub {
         my ($value, $field) = @_;
         if (($value // '') ne '') {
             return if $value =~ /^-?\d+$/ && $opts{min} <= $value && $value <= $opts{max};
@@ -118,13 +124,15 @@ sub int_range {
             return;
         }
         res_str(1045, $field->caption_msg, $opts{min}, $opts{max});
-    };
+    });
 }
+
+sub _numeric { $numeric{$_[0]} = 1; $_[0] }
 
 # Params:{ allow_empty, min, max }
 sub fixed {
     my (%opts) = @_;
-    sub {
+    _numeric(sub {
         my ($value, $field) = @_;
         if (($value // '') ne '') {
             return if $value =~ /^-?\d+(\.\d+)?$/ &&
@@ -135,7 +143,7 @@ sub fixed {
             return;
         }
         res_str(1051, $field->caption_msg, $opts{min} // '-Inf', $opts{max} // '+Inf');
-    };
+    });
 }
 
 sub _in_range { $_[1] <= $_[0] && $_[0] <= $_[2] }

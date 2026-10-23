@@ -4,7 +4,7 @@ use utf8;
 
 use File::Spec;
 use FindBin;
-use Test::More tests => 41;
+use Test::More tests => 45;
 
 use lib File::Spec->catdir($FindBin::Bin, '..');
 use lib File::Spec->catdir($FindBin::Bin, '..', 'cats-problem');
@@ -39,6 +39,15 @@ CATS::Messages::init;
     ok ir(4), 'int_range 4<5';
     ok ir(8), 'int_range 8<7';
     is ir(5), undef, 'int_range 5=5';
+}
+{
+    my $num = CATS::Field->new(name => 'n',
+        validators => [ CATS::Field::int_range(min => -1, max => 9, allow_empty => 1) ]);
+    is $num->save(''), undef, 'empty optional number saves as NULL';
+    is $num->save('3'), '3', 'optional number saves its value';
+    my $fx = CATS::Field->new(name => 'x', validators => [ CATS::Field::fixed(allow_empty => 1) ]);
+    is $fx->save(''), undef, 'empty optional fixed saves as NULL';
+    is(CATS::Field->new(name => 's')->save(''), '', 'empty string field stays empty');
 }
 {
     my $f = CATS::Field->new(name => 'f');
