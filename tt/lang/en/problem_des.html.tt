@@ -2,7 +2,9 @@
   capt.import({
     sources => 'Sources',
     allow_des => 'Allow only development environments',
-    package_des => 'Default from the problem package, applies while nothing is checked',
+    package_des => 'Allowed by the problem package; checking environments above narrows this further',
+    offered_des => 'Students can submit in',
+    no_offered_des => 'No development environment is allowed for this problem in this contest: the package, this list and the environments of the contest do not overlap.',
     save => 'save',
   })
 %]

@@ -99,15 +99,22 @@ sub _de_by_code {
         $_[0]);
 }
 
-# 'by_extension' is the form's "Auto" choice: pick among the DEs this problem
-# allows in this contest, by the source's content (CATS::DevEnv::Detect) and
-# file extension. An extension within the detected language family is the
-# student's explicit choice (e.g. .pypy, or .h for a link to not compile).
-sub _auto_de {
-    my ($file, $source_text, $cpid) = @_;
+# The DEs a student may use for a contest problem: the contest's DEs
+# intersected with the problem's allowed ones (CATS::Problem::Save::allowed_de_ids).
+sub _offered_des {
+    my ($cpid) = @_;
     my $des = _get_DEs($cid)->{des};
-    my %problem_des = map { $_ => 1 } @{CATS::Problem::Save::allowed_de_ids($cpid)};
-    $des = [ grep $problem_des{$_->{id}}, @$des ] if %problem_des;
+    my $allowed = CATS::Problem::Save::allowed_de_ids($cpid) or return $des;
+    my %allowed = map { $_ => 1 } @$allowed;
+    [ grep $allowed{$_->{id}}, @$des ];
+}
+
+# 'by_extension' is the form's "Auto" choice: pick among the offered DEs by the
+# source's content (CATS::DevEnv::Detect) and file extension. An extension
+# within the detected language family is the student's explicit choice
+# (e.g. .pypy, or .h for a link to not compile).
+sub _auto_de {
+    my ($file, $source_text, $des) = @_;
     return $des->[0] if @$des == 1;
 
     my $ext_de = CATS::DevEnv->new({ des => $des })->by_file_extension($file);
@@ -123,31 +130,17 @@ sub _prepare_de {
     my $result = {};
 
     my $did = $p->{de_id} || _de_by_code($p->{de_code}) or return msg(1013);
+    my $offered = _offered_des($cpid);
+    @$offered or return msg(1252);
     if ($did eq 'by_extension') {
-        my $de = _auto_de($file, $source_text, $cpid) or return msg(1013);
-        $did = $de->{id};
+        my $de = _auto_de($file, $source_text, $offered) or return msg(1013);
         $result->{de_name} = $de->{description};
+        return ($de->{id}, $result);
     }
-    else {
-        @{_get_DEs($cid, $did)->{des}} or do {
-            my $des = _get_DEs($cid)->{des};
-            $t->param(de_not_allowed => $des) if $t;
-            $result->{de_not_allowed} =
-                [ map +{ de_id => $_->{de_id}, description => $_->{description} }, @$des ];
-            return (undef, $result);
-        };
-    }
-
-    my $allowed_ids = CATS::Problem::Save::allowed_de_ids($cpid);
-    my $allowed_des = @$allowed_ids && $dbh->selectall_arrayref(_u $sql->select(
-        'default_de', 'id AS de_id, description', { id => $allowed_ids }, 'code'));
-    if ($allowed_des && @$allowed_des && 0 == grep $_->{de_id} == $did, @$allowed_des) {
-        $result->{de_not_allowed} = $allowed_des;
-        return (undef, $result);
-    }
-    else {
-        return ($did, $result);
-    }
+    return ($did, $result) if grep $_->{id} == $did, @$offered;
+    $result->{de_not_allowed} =
+        [ map +{ de_id => $_->{de_id}, description => $_->{description} }, @$offered ];
+    (undef, $result);
 }
 
 sub prepare_de {
@@ -171,7 +164,7 @@ sub prepare_de_list {
     my %allowed;
     for (@$cpids) {
         my $ids = CATS::Problem::Save::allowed_de_ids($_);
-        if (!@$ids) { $allow_all = 1; last; }
+        if (!$ids) { $allow_all = 1; last; }
         $allowed{$_} = 1 for @$ids;
     }
 

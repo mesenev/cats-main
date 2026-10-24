@@ -466,3 +466,4 @@
 1249 "Registration failed."
 1250 "Contests containing topic '%s'."
 1251 "Topics added: %d."
+1252 "此比赛中该题目不允许任何开发环境。"

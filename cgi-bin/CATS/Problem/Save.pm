@@ -204,24 +204,30 @@ sub problems_add_template {
     problems_add($tmpdir->dirname, source => 'dir');
 }
 
-# DEs allowed for a contest problem: the contest's own list if it has one,
-# else the package's default (problems.allow_des). Empty means all of the
-# contest's DEs.
+# DEs allowed for a contest problem: the package's AllowDEs intersected with
+# the contest's own list for the problem (the Allowed DEs page), each applying
+# only if set. undef means no restriction, i.e. all of the contest's DEs;
+# an empty list means none (the two lists do not overlap). Callers intersect
+# the result with the DEs the contest offers.
 sub allowed_de_ids {
     my ($cpid) = @_;
-    my $ids = $dbh->selectcol_arrayref(q~
+    my $contest_ids = $dbh->selectcol_arrayref(q~
         SELECT de_id FROM contest_problem_des WHERE cp_id = ?~, undef, $cpid);
-    return $ids if @$ids;
-    package_de_ids($cpid);
+    my $package_ids = package_de_ids($cpid);
+    return $package_ids unless @$contest_ids;
+    return $contest_ids unless $package_ids;
+    my %in_package = map { $_ => 1 } @$package_ids;
+    [ grep $in_package{$_}, @$contest_ids ];
 }
 
+# The package's AllowDEs as DE ids, or undef if the package sets none.
 sub package_de_ids {
     my ($cpid) = @_;
     my ($codes) = $dbh->selectrow_array(q~
         SELECT P.allow_des FROM problems P INNER JOIN contest_problems CP ON CP.problem_id = P.id
         WHERE CP.id = ?~, undef, $cpid);
     my @codes = grep /^\d+$/, split /,/, $codes // '';
-    @codes or return [];
+    @codes or return undef;
     $dbh->selectcol_arrayref(_u $sql->select('default_de', 'id', { code => \@codes }));
 }
 

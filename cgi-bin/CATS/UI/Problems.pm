@@ -307,6 +307,20 @@ sub _build_topics {
     CATS::Topics->new($topics);
 }
 
+my %de_by_id;
+# The DEs a problem allows in this contest (package's AllowDEs intersected
+# with the contest's list): '*' if unrestricted, '-' if none at all.
+sub _allowed_des_cell {
+    my ($cpid) = @_;
+    my $ids = CATS::Problem::Save::allowed_de_ids($cpid) or return (allow_des => '*');
+    %de_by_id = map { $_->{id} => $_ } @{$dbh->selectall_arrayref(
+        'SELECT id, code, description FROM default_de', { Slice => {} })} unless %de_by_id;
+    my @des = sort { $a->{code} <=> $b->{code} } grep $_, map $de_by_id{$_}, @$ids;
+    @des or return (allow_des => '-', allow_des_names => res_str(1252));
+    (allow_des => join(' ', map $_->{code}, @des),
+        allow_des_names => join(', ', map $_->{description}, @des));
+}
+
 sub problems_frame {
     my ($p) = @_;
 
@@ -439,7 +453,7 @@ sub problems_frame {
         SELECT LIST(DISTINCT D.description, ' ') FROM default_de D
         INNER JOIN contest_problem_des CPD ON CPD.cp_id = CP.id AND CPD.de_id = D.id
         ORDER BY 1
-        ) AS allow_des_names, P.allow_des AS package_allow_des,~ : '';
+        ) AS allow_des_names,~ : '';
     my $usage_count_sql = $is_jury && $lv->visible_cols->{Uc} ?
         $CATS::Problem::Utils::queries->{usage_count} : 'NULL';
 
@@ -612,9 +626,7 @@ sub problems_frame {
             job_split_strategy => $c->{job_split_strategy} // '*',
             max_reqs => $c->{max_reqs} // '*',
             last_verdict => $last_verdict,
-            # In parentheses: no list of the contest's own, the package's default applies.
-            allow_des => $c->{allow_des} //
-                ($c->{package_allow_des} ? '(' . join(' ', split /,/, $c->{package_allow_des}) . ')' : '*'),
+            ($lv->visible_cols->{Ad} ? _allowed_des_cell($c->{cpid}) : (allow_des => '*')),
             group_title => $group_title,
             href_group => $href_group,
         );

@@ -2,7 +2,9 @@
   capt.import({
     sources => 'Sources',
     allow_des => 'Allow only development environments',
-    package_des => '题目包中的默认值，未勾选任何项时生效',
+    package_des => '题目包允许的环境；在上方勾选可进一步缩小范围',
+    offered_des => '参赛者可以使用',
+    no_offered_des => '此比赛中该题目不允许任何开发环境：题目包、此列表与比赛的环境没有交集。',
     save => '更换',
   })
 %]

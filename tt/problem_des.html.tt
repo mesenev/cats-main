@@ -32,7 +32,9 @@
 </tr>
 [% END %]
 </table>
-[% IF package_des.size %]<p>* [% capt.package_des %]: [% package_des.join(', ') %].</p>[% END %]
+[% IF package_des %]<p>* [% capt.package_des %]: [% package_des.join(', ') || '-' %].</p>[% END %]
+<p>[% IF offered_des.size; capt.offered_des %]: [% offered_des.join(', ') %].
+[%- ELSE %]<b>[% capt.no_offered_des %]</b>[% END %]</p>
 <br/>
 <button type="submit" value="1" name="save" class="button">[% capt.save %]</button>
 </form>

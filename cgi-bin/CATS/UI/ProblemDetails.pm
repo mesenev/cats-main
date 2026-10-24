@@ -16,6 +16,7 @@ use CATS::ListView;
 use CATS::Messages qw(msg res_str);
 use CATS::Output qw(downloads_path downloads_url init_template search url_f url_f_cid);
 use CATS::Problem::Save;
+use CATS::Problem::Submit;
 use CATS::Problem::Storage;
 use CATS::Problem::Tags;
 use CATS::Problem::Text;
@@ -500,9 +501,14 @@ sub problem_des_frame {
     my $des = $p->{save} ?
         CATS::Problem::Save::set_contest_problem_des($problem->{cpid}, $p->{allow}, 'id') :
         CATS::Problem::Save::get_all_des($problem->{cpid});
-    my %package = map { $_ => 1 } @{CATS::Problem::Save::package_de_ids($problem->{cpid})};
+    my $package_ids = CATS::Problem::Save::package_de_ids($problem->{cpid});
+    my %package = map { $_ => 1 } @{$package_ids // []};
     $_->{package} = $package{$_->{id}} for @$des;
-    $t->param(package_des => [ map "$_->{code} $_->{description}", grep $_->{package}, @$des ]);
+    $t->param(
+        package_des => $package_ids && [ map "$_->{code} $_->{description}", grep $_->{package}, @$des ],
+        offered_des => [ map "$_->{code} $_->{description}",
+            @{CATS::Problem::Submit::_offered_des($problem->{cpid})} ],
+    );
 
     $lv->default_sort(0)->define_columns([
         { caption => res_str(642), order_by => 'stype', width => '20%' },

@@ -100,8 +100,10 @@ files with tests, solutions etc.
   <td>Development environments allowed for the problem by default:
     a list of DE codes separated by commas or spaces, for example
     <code>&lt;AllowDEs&gt;520,502&lt;/AllowDEs&gt;</code>.
-    If a contest sets its own list of allowed environments for the problem,
-    that list takes precedence. Without this tag, every environment of the contest is allowed.
+    Participants can use the environments that are in this list, in the environments
+    of the contest and, if the contest sets its own list for the problem, in that list too:
+    a contest can narrow the list, but not extend it. Without this tag, every environment
+    of the contest (or of its own list for the problem) is allowed.
     Uploading fails if the system has no environment with one of the codes;
     an environment that exists but is turned off only produces a warning.</td>
 </tr>
