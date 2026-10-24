@@ -439,7 +439,7 @@ sub problems_frame {
         SELECT LIST(DISTINCT D.description, ' ') FROM default_de D
         INNER JOIN contest_problem_des CPD ON CPD.cp_id = CP.id AND CPD.de_id = D.id
         ORDER BY 1
-        ) AS allow_des_names,~ : '';
+        ) AS allow_des_names, P.allow_des AS package_allow_des,~ : '';
     my $usage_count_sql = $is_jury && $lv->visible_cols->{Uc} ?
         $CATS::Problem::Utils::queries->{usage_count} : 'NULL';
 
@@ -612,7 +612,9 @@ sub problems_frame {
             job_split_strategy => $c->{job_split_strategy} // '*',
             max_reqs => $c->{max_reqs} // '*',
             last_verdict => $last_verdict,
-            allow_des => $c->{allow_des} // '*',
+            # In parentheses: no list of the contest's own, the package's default applies.
+            allow_des => $c->{allow_des} //
+                ($c->{package_allow_des} ? '(' . join(' ', split /,/, $c->{package_allow_des}) . ')' : '*'),
             group_title => $group_title,
             href_group => $href_group,
         );

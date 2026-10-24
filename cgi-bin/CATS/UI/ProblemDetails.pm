@@ -500,6 +500,9 @@ sub problem_des_frame {
     my $des = $p->{save} ?
         CATS::Problem::Save::set_contest_problem_des($problem->{cpid}, $p->{allow}, 'id') :
         CATS::Problem::Save::get_all_des($problem->{cpid});
+    my %package = map { $_ => 1 } @{CATS::Problem::Save::package_de_ids($problem->{cpid})};
+    $_->{package} = $package{$_->{id}} for @$des;
+    $t->param(package_des => [ map "$_->{code} $_->{description}", grep $_->{package}, @$des ]);
 
     $lv->default_sort(0)->define_columns([
         { caption => res_str(642), order_by => 'stype', width => '20%' },

@@ -204,6 +204,27 @@ sub problems_add_template {
     problems_add($tmpdir->dirname, source => 'dir');
 }
 
+# DEs allowed for a contest problem: the contest's own list if it has one,
+# else the package's default (problems.allow_des). Empty means all of the
+# contest's DEs.
+sub allowed_de_ids {
+    my ($cpid) = @_;
+    my $ids = $dbh->selectcol_arrayref(q~
+        SELECT de_id FROM contest_problem_des WHERE cp_id = ?~, undef, $cpid);
+    return $ids if @$ids;
+    package_de_ids($cpid);
+}
+
+sub package_de_ids {
+    my ($cpid) = @_;
+    my ($codes) = $dbh->selectrow_array(q~
+        SELECT P.allow_des FROM problems P INNER JOIN contest_problems CP ON CP.problem_id = P.id
+        WHERE CP.id = ?~, undef, $cpid);
+    my @codes = grep /^\d+$/, split /,/, $codes // '';
+    @codes or return [];
+    $dbh->selectcol_arrayref(_u $sql->select('default_de', 'id', { code => \@codes }));
+}
+
 sub get_all_des {
     $dbh->selectall_arrayref(q~
         SELECT D.id, D.code, D.description, D.in_contests,

@@ -26,12 +26,13 @@
   [% FOREACH de IN row %]
   <td><label>
     <input type="checkbox" value="[% de.id %]" name="allow"[% ' checked="checked"' IF de.allow %] />
-    [% de.code %] [% de.description %]
+    [% de.code %] [% de.description %][% ' *' IF de.package %]
   </label></td>
   [% END %]
 </tr>
 [% END %]
 </table>
+[% IF package_des.size %]<p>* [% capt.package_des %]: [% package_des.join(', ') %].</p>[% END %]
 <br/>
 <button type="submit" value="1" name="save" class="button">[% capt.save %]</button>
 </form>

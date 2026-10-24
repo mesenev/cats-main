@@ -281,7 +281,8 @@ CREATE TABLE problems (
     players_count      VARCHAR(200),
     statement_url      VARCHAR(200) DEFAULT '',
     explanation_url    VARCHAR(200) DEFAULT '',
-    repo_path          VARCHAR(200) DEFAULT ''
+    repo_path          VARCHAR(200) DEFAULT '',
+    allow_des          VARCHAR(200) /* DE codes from the package's AllowDEs, e.g. '520,502' */
 );
 ALTER TABLE problems ADD CONSTRAINT chk_run_method CHECK (run_method >= 0);
 

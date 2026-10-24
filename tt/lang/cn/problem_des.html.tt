@@ -2,6 +2,7 @@
   capt.import({
     sources => 'Sources',
     allow_des => 'Allow only development environments',
+    package_des => '题目包中的默认值，未勾选任何项时生效',
     save => '更换',
   })
 %]

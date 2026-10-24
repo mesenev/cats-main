@@ -7,6 +7,7 @@ use CATS::Constants;
 use CATS::DB qw(:DEFAULT $db);
 use CATS::DevEnv;
 use CATS::DevEnv::Detect;
+use CATS::Problem::Save;
 use CATS::Globals qw($cid $contest $is_jury $t $uid $user);
 use CATS::IP;
 use CATS::Messages qw(msg res_str);
@@ -105,8 +106,7 @@ sub _de_by_code {
 sub _auto_de {
     my ($file, $source_text, $cpid) = @_;
     my $des = _get_DEs($cid)->{des};
-    my %problem_des = map { $_ => 1 } @{$dbh->selectcol_arrayref(q~
-        SELECT de_id FROM contest_problem_des WHERE cp_id = ?~, undef, $cpid)};
+    my %problem_des = map { $_ => 1 } @{CATS::Problem::Save::allowed_de_ids($cpid)};
     $des = [ grep $problem_des{$_->{id}}, @$des ] if %problem_des;
     return $des->[0] if @$des == 1;
 
@@ -138,12 +138,9 @@ sub _prepare_de {
         };
     }
 
-    my $allowed_des = $dbh->selectall_arrayref(q~
-        SELECT CPD.de_id, D.description
-        FROM contest_problem_des CPD
-        INNER JOIN default_de D ON D.id = CPD.de_id
-        WHERE CPD.cp_id = ? ORDER BY D.code~, { Slice => {} },
-        $cpid);
+    my $allowed_ids = CATS::Problem::Save::allowed_de_ids($cpid);
+    my $allowed_des = @$allowed_ids && $dbh->selectall_arrayref(_u $sql->select(
+        'default_de', 'id AS de_id, description', { id => $allowed_ids }, 'code'));
     if ($allowed_des && @$allowed_des && 0 == grep $_->{de_id} == $did, @$allowed_des) {
         $result->{de_not_allowed} = $allowed_des;
         return (undef, $result);
@@ -164,23 +161,18 @@ sub prepare_de_list {
     my ($p) = @_;
     my $de_list = CATS::DevEnv->new(_get_DEs($cid));
 
-    my ($allowed_des) = $dbh->selectall_arrayref(_u $sql->select(
-        'contest_problems CP LEFT JOIN contest_problem_des CPD ON CP.id = CPD.cp_id',
-        'CP.id, CPD.de_id',
+    my $cpids = $dbh->selectcol_arrayref(_u $sql->select(
+        'contest_problems CP', 'CP.id',
         { 'CP.contest_id' => $cid, ($p->{cpid} ? ('CP.id' => $p->{cpid}) : ()),
             ($is_jury ? () : ('CP.status' => { '<', $cats::problem_st_disabled })) }
     ));
 
     my $allow_all = 0;
     my %allowed;
-    for (@$allowed_des) {
-        if($_->{de_id}) {
-            $allowed{$_->{de_id}} = 1;
-        }
-        else {
-            $allow_all = 1;
-            last;
-        }
+    for (@$cpids) {
+        my $ids = CATS::Problem::Save::allowed_de_ids($_);
+        if (!@$ids) { $allow_all = 1; last; }
+        $allowed{$_} = 1 for @$ids;
     }
 
     my @all_des = $allow_all ? @{$de_list->des} : grep $allowed{$_->{id}}, @{$de_list->des};

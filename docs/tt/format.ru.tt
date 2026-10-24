@@ -14,6 +14,7 @@
 [%- MACRO v19 BLOCK %]<sup><a href="#v19" title="С версии 1.9">1.9</a></sup>[% END -%]
 [%- MACRO v110 BLOCK %]<sup><a href="#v110" title="С версии 1.10">1.10</a></sup>[% END -%]
 [%- MACRO v111 BLOCK %]<sup><a href="#v111" title="С версии 1.11">1.11</a></sup>[% END -%]
+[%- MACRO v112 BLOCK %]<sup><a href="#v112" title="С версии 1.12">1.12</a></sup>[% END -%]
 [%- MACRO tag_in(t1, t2, m1, m2) BLOCK
 %]<code>&lt;<a name="[% t1 %]">[% t1 %]</a>&gt;[% IF t2 != '';
   IF m1 != '' %]</code>[% m1 %]<br/><code>[% ELSE %]<br/>[% END
@@ -22,7 +23,7 @@ END -%]
 [%- MACRO tag_ref(t) BLOCK %]<code>&lt;<a href="#[% t %]">[% t %]</a>&gt;</code>[% END -%]
 [%- MACRO mem_units BLOCK %](в <a href="#memoryUnits">мегабайтах или других единицах</a>)[% END -%]
 [%- MACRO stml BLOCK %]<a href="#STML">STML</a>[% END -%]
-<h2>Версия 1.11</h2>
+<h2>Версия 1.12</h2>
 
 <p><a href="sample.zip">скачать пример пакета с заданием</a></p>
 <p>Для хранения задачи используется ZIP-файл, в корне которого обязательно
@@ -91,6 +92,17 @@ END -%]
       <ul><li>code — код ключевого слова.</li></ul>
   </td>
   <td>Код ключевого слова должен быть известен системе.</td>
+</tr>
+<tr>
+  <td>[% tag_in('AllowDEs', 'Problem', v112) %]</td>
+  <td>&nbsp;</td>
+  <td>Среды разработки, разрешённые для задачи по умолчанию:
+    список кодов сред через запятую или пробел, например
+    <code>&lt;AllowDEs&gt;520,502&lt;/AllowDEs&gt;</code>.
+    Если турнир задаёт для задачи собственный список разрешённых сред,
+    действует он. Без этого тега разрешены все среды турнира.
+    Загрузка завершается ошибкой, если в системе нет среды с одним из кодов;
+    существующая, но отключённая среда вызывает только предупреждение.</td>
 </tr>
 <tr>
   <td>[% tag_in('ProblemStatement', 'Problem') %]</td>
@@ -756,7 +768,7 @@ END -%]
   since('v15', '1.5'); since('v16', '1.6');
   since('v17', '1.7'); since('v18', '1.8');
   since('v19', '1.9'); since('v110', '1.10');
-  since('v111', '1.11');
+  since('v111', '1.11'); since('v112', '1.12');
 %]
 <a name="dv14"></a><p><a href="" onclick="javascript:history.back(-1)"><sup>&minus;1.4</sup></a>
   Данная возможность считается устаревшей начиная с версии 1.4.</p>

@@ -19,7 +19,7 @@ use CATS::Problem::Source::PlainFiles;
 use CATS::StaticPages;
 
 use fields qw(
-    de_list debug import_log old_title parser
+    de_list debug import_issues import_log import_result old_title parser
 );
 
 sub new {
@@ -33,7 +33,13 @@ sub clear {
     undef $self->{$_} for keys %CATS::Problem::FIELDS;
 }
 
-sub encoded_import_log { $_[0]->{import_log} }
+# The outcome and every warning and error first, then the full log in order.
+sub encoded_import_log {
+    my ($self) = @_;
+    my @top = grep defined, $self->{import_result}, @{$self->{import_issues} // []};
+    @top or return $self->{import_log};
+    join("\n", @top) . "\n\n" . ($self->{import_log} // '');
+}
 
 sub get_remote_url {
     defined $_[0] && $_[0] !~ /^\d+$/ ? $_[0] : undef;
@@ -116,6 +122,7 @@ sub fail_loading {
     my ($self, $repo, $problem, $replace, $err, $revision) = @_;
     eval { $replace ? $repo->reset($revision)->checkout : $repo->delete; };
     my $clear_err = $@;
+    ($self->{import_result} = "Import failed: $err") =~ s/\s+\z//;
     $self->note("Import failed: $err");
     $self->note("Cleaning of repository failed: $clear_err") if $clear_err;
     return (-1, undef, $problem);
@@ -171,6 +178,7 @@ sub load_problem {
     } else {
         return $self->fail_loading($repo, $problem, $replace, $dbh->errstr, 'HEAD^')
             unless $self->{debug} || $dbh->commit;
+        $self->{import_result} = 'Success import';
         $self->note('Success import');
     }
     return (0, $repo->get_latest_master_sha, $problem);
@@ -266,11 +274,13 @@ sub note {
 sub warning {
     my ($self, $msg) = @_;
     $self->{import_log} .= "Warning: $msg\n";
+    push @{$self->{import_issues}}, "Warning: $msg";
 }
 
 sub error {
     my ($self, $msg) = @_;
     $self->{import_log} .= "Error: $msg\n";
+    push @{$self->{import_issues}}, "Error: $msg";
     die 'Unrecoverable error';
 }
 
@@ -301,7 +311,7 @@ sub save {
             statement=?, pconstraints=?, input_format=?, output_format=?,
             formal_input=?, json_data=?, explanation=?, zip_archive=?,
             upload_date=CURRENT_TIMESTAMP, std_checker=?, last_modified_by=?,
-            max_points=?, run_method=?, players_count=?, repo=?, hash=NULL, repo_path=?
+            max_points=?, run_method=?, players_count=?, repo=?, hash=NULL, repo_path=?, allow_des=?
         WHERE id = ?~
     : q~
         INSERT INTO problems (
@@ -312,10 +322,12 @@ sub save {
             statement, pconstraints, input_format, output_format,
             formal_input, json_data, explanation, zip_archive,
             upload_date, std_checker, last_modified_by,
-            max_points, run_method, players_count, repo, repo_path, id
+            max_points, run_method, players_count, repo, repo_path, allow_des, id
         ) VALUES (
-            ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?
+            ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,?,?,?,?,?,?,?,?,?
         )~;
+
+    my $allow_des = $self->check_allow_des($problem->{description}{allow_des});
 
     my $c = $dbh->prepare($sql);
     my $i = 1;
@@ -335,6 +347,7 @@ sub save {
     $c->bind_param($i++, CATS::Testset::pack_rank_spec(@{$problem->{players_count}}));
     $c->bind_param($i++, $problem->{repo});
     $c->bind_param($i++, $self->{parser}->{source}->{repo_path});
+    $c->bind_param($i++, $allow_des);
     $c->bind_param($i++, $problem->{id});
     $c->execute;
 
@@ -345,6 +358,23 @@ sub save {
     $dbh->do(q~
         DELETE FROM problem_de_bitmap_cache WHERE problem_id = ?~, undef,
         $problem->{id}) if $problem->{replace};
+}
+
+# The package's AllowDEs codes as stored in problems.allow_des. A code this
+# server does not have refuses the upload; one that is turned off (locked)
+# only warns, since it can be enabled later.
+sub check_allow_des {
+    my ($self, $codes) = @_;
+    $codes && @$codes or return undef;
+    my %des = map { $_->{code} => $_ }
+        @{CATS::JudgeDB::get_DEs({ fields => 'in_contests' })->{des}};
+    if (my @unknown = grep !$des{$_}, @$codes) {
+        $self->error('AllowDEs: this server has no DE with code ' . join(', ', @unknown));
+    }
+    for (grep !$des{$_}->{in_contests}, @$codes) {
+        $self->warning("AllowDEs: DE $_ ($des{$_}->{description}) is turned off on this server");
+    }
+    join ',', @$codes;
 }
 
 sub get_de_id {

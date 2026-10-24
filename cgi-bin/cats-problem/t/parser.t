@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use FindBin;
-use Test::More tests => 23;
+use Test::More tests => 24;
 use Test::Exception;
 
 use lib File::Spec->catdir($FindBin::Bin, '..');
@@ -1340,4 +1340,22 @@ subtest 'resources', sub {
     is_deeply { %{$p->{resources}->[1]}{qw(name url res_type)} },
         { name => 'r2', url => 'http://example2.com', res_type => 2 }, 'resource 2';
     is_deeply $p->{checker}->{resources}, [ [ 'r2', 'c' ], [ 'r1', undef ] ], 'resource refs';
+};
+
+subtest 'allow_des', sub {
+    plan tests => 6;
+
+    my $parse = sub {
+        parse({
+            'test.xml' => wrap_problem(qq~<Checker src="t.pp"/>$_[0]~),
+            't.pp' => 'q',
+        });
+    };
+    is $parse->('')->{description}->{allow_des}, undef, 'none: everything allowed';
+    is_deeply $parse->('<AllowDEs>520,502</AllowDEs>')->{description}->{allow_des}, [ 520, 502 ], 'comma list';
+    is_deeply $parse->("<AllowDEs> 102 105\n102 </AllowDEs>")->{description}->{allow_des}, [ 102, 105 ],
+        'spaces, newlines, duplicates';
+    throws_ok { $parse->('<AllowDEs>502,python</AllowDEs>') } qr/'python' is not a DE code/, 'not a code';
+    throws_ok { $parse->('<AllowDEs> </AllowDEs>') } qr/no DE codes/, 'empty';
+    throws_ok { parse({ 'test.xml' => wrap_xml('<AllowDEs>1</AllowDEs>') }) } qr/AllowDEs/, 'outside Problem';
 };

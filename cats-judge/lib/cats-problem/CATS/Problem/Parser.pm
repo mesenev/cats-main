@@ -96,6 +96,7 @@ sub tag_handlers() {{
     SampleIn => { start_end_tag_SampleInOut('in_file', 'in_html'), in => ['Sample'] },
     SampleOut => { start_end_tag_SampleInOut('out_file', 'out_html'), in => ['Sample'] },
     Keyword => { s => \&start_tag_Keyword, r => ['code'] },
+    AllowDEs => { s => sub { $_[0]->current_tag->{stml} = \(my $text = '') }, e => \&end_tag_AllowDEs, in => ['Problem'] },
     Testset => { s => \&start_tag_Testset, r => ['name', 'tests'] },
     Run => { s => \&start_tag_Run, r => ['method'] },
     Quiz => {
@@ -361,6 +362,20 @@ sub end_tag_JsonData {
         $self->note('JsonData OK.');
     }
     $self->end_stml;
+}
+
+# DE codes the problem allows by default, e.g. "520,502". A contest can still
+# set its own list for the problem, which then takes precedence.
+sub end_tag_AllowDEs {
+    (my CATS::Problem::Parser $self, my $atts) = @_;
+    my $text = ${$self->current_tag->{stml}} // '';
+    $self->end_stml;
+    my @codes = grep length, split /[\s,;]+/, $text;
+    @codes or return $self->error('AllowDEs: no DE codes given');
+    /^\d+$/ or return $self->error("AllowDEs: '$_' is not a DE code") for @codes;
+    my %seen;
+    $self->{problem}->{description}->{allow_des} = [ grep !$seen{$_}++, @codes ];
+    $self->note('Allowed DEs: ' . join ', ', @{$self->{problem}->{description}->{allow_des}});
 }
 
 sub parse_memory_unit {

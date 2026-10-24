@@ -14,6 +14,7 @@
 [%- MACRO v19 BLOCK %]<sup><a href="#v19" title="Since version 1.9">1.9</a></sup>[% END -%]
 [%- MACRO v110 BLOCK %]<sup><a href="#v110" title="Since version 1.10">1.10</a></sup>[% END -%]
 [%- MACRO v111 BLOCK %]<sup><a href="#v111" title="Since version 1.11">1.11</a></sup>[% END -%]
+[%- MACRO v112 BLOCK %]<sup><a href="#v112" title="Since version 1.12">1.12</a></sup>[% END -%]
 [%- MACRO tag_in(t1, t2, m1, m2) BLOCK
 %]<code>&lt;<a name="[% t1 %]">[% t1 %]</a>&gt;[% IF t2 != '';
   IF m1 != '' %]</code>[% m1 %]<br/><code>[% ELSE %]<br/>[% END
@@ -22,7 +23,7 @@ END -%]
 [%- MACRO tag_ref(t) BLOCK %]<code>&lt;<a href="#[% t %]">[% t %]</a>&gt;</code>[% END -%]
 [%- MACRO mem_units BLOCK %](in <a href="#memoryUnits">megabytes or other units</a>)[% END -%]
 [%- MACRO stml BLOCK %]<a href="#STML">STML</a>[% END -%]
-<h2>Version 1.11</h2>
+<h2>Version 1.12</h2>
 
 <p><a href="sample.zip">download sample problem package</a></p>
 
@@ -92,6 +93,17 @@ files with tests, solutions etc.
       <ul><li>code — keyword code.</li></ul>
   </td>
   <td>Keyword code must be pre-defined in a system.</td>
+</tr>
+<tr>
+  <td>[% tag_in('AllowDEs', 'Problem', v112) %]</td>
+  <td>&nbsp;</td>
+  <td>Development environments allowed for the problem by default:
+    a list of DE codes separated by commas or spaces, for example
+    <code>&lt;AllowDEs&gt;520,502&lt;/AllowDEs&gt;</code>.
+    If a contest sets its own list of allowed environments for the problem,
+    that list takes precedence. Without this tag, every environment of the contest is allowed.
+    Uploading fails if the system has no environment with one of the codes;
+    an environment that exists but is turned off only produces a warning.</td>
 </tr>
 <tr>
   <td>[% tag_in('ProblemStatement', 'Problem') %]</td>
@@ -754,7 +766,7 @@ have explicit <code>lang</code> attribute.
   since('v15', '1.5'); since('v16', '1.6');
   since('v17', '1.7'); since('v18', '1.8');
   since('v19', '1.9'); since('v110', '1.10');
-  since('v111', '1.11');
+  since('v111', '1.11'); since('v112', '1.12');
 %]
 <a name="dv14"></a><p><a href="" onclick="javascript:history.back(-1)"><sup>&minus;1.4</sup></a>
   This feature is deprecated since version 1.4.</p>

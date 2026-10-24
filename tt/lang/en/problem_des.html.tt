@@ -2,6 +2,7 @@
   capt.import({
     sources => 'Sources',
     allow_des => 'Allow only development environments',
+    package_des => 'Default from the problem package, applies while nothing is checked',
     save => 'save',
   })
 %]
