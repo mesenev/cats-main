@@ -1089,6 +1089,15 @@ sub test_solution {
                 if $st && ($st == $cats::st_compilation_error || $st == $cats::st_lint_error);
             return $st if !$st || $st != $cats::st_testing;
         }
+        # A DE that cannot run (e.g. 'Do not compile this file') is the wrong
+        # choice of language for a problem with tests, not a judge failure.
+        if ($problem->{run_method} != $cats::rm_competitive_modules) {
+            for my $run_req (@run_requests) {
+                next if $src_proc->property(run => $run_req->{de_id});
+                log_msg("DE %s cannot be run, not testing\n", $run_req->{code} // 'id=' . $run_req->{de_id});
+                return $cats::st_ignore_submit;
+            }
+        }
         my %tests =
             _is_competitive_run($problem->{run_method}) || $r->{type} == $cats::job_type_submission ?
             $judge->get_testset('reqs', $r->{id}, 1) : $judge->get_testset('jobs', $r->{job_id});
