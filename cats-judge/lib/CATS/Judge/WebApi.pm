@@ -44,16 +44,21 @@ sub init {
     }
 }
 
+# While the server is unreachable (restart, proxy error, DNS outage), wait for
+# it rather than die: an error escaping here ends the judge mid-job. Gives up
+# after this long, so a server that stays down still shows as a judge exit.
+my $max_retry_wait = 60 * 60; # in sec
+
 sub get_json {
-    my ($self, $params, $headers, $max_retries) = @_;
-    $max_retries //= 3;
+    my ($self, $params, $headers) = @_;
 
     suppress_certificate_check if $self->{no_certificate_check};
     push @$params, json => 1;
 
-    my @delays = (1, 3, 10);  # in sec
+    my @delays = (1, 3, 10, 30);  # in sec, then 60 each
+    my $waited = 0;
 
-    for my $attempt (0 .. $max_retries) {
+    for (my $attempt = 1; ; $attempt++) {
         my $response = $self->{agent}->request(
             POST "$self->{cats_url}/",
             %{$headers // {}},
@@ -63,14 +68,15 @@ sub get_json {
         return decode_json($response->content) if $response->{_rc} == 200;
 
         # Retries 502, 503, 504, connect, resolv issues
-        if ($attempt < $max_retries &&
+        if ($waited < $max_retry_wait &&
             ($response->{_rc} =~ /^(502|503|504)$/ ||
              $response->{_msg} =~ /name resolution|connect|timeout/i)) {
 
-            my $delay = $delays[$attempt] // 10;
-            warn sprintf("Error: %d '%s', retrying in %ds (attempt %d/%d)",
-                $response->{_rc}, $response->{_msg}, $delay, $attempt+1, $max_retries);
+            my $delay = $delays[$attempt - 1] // 60;
+            warn sprintf("Error: %d '%s', retrying in %ds (attempt %d, waited %ds of %ds)",
+                $response->{_rc}, $response->{_msg}, $delay, $attempt, $waited, $max_retry_wait);
             sleep $delay;
+            $waited += $delay;
             next;
         }
 
