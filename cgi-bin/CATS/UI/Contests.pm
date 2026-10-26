@@ -234,6 +234,55 @@ sub _install_problems {
     msg(1170, $jobs_created);
 }
 
+# { problem_id => { judge_id => nick } } for problems restricted to some judges.
+sub _get_problem_judges {
+    my ($problem_ids) = @_;
+    @$problem_ids or return {};
+    my $rows = $dbh->selectall_arrayref(q~
+        SELECT PJ.problem_id, PJ.judge_id, J.nick FROM problem_judges PJ
+        INNER JOIN judges J ON J.id = PJ.judge_id
+        WHERE PJ.problem_id IN (~ . join(',', ('?') x @$problem_ids) . ')', { Slice => {} },
+        @$problem_ids);
+    my $result = {};
+    $result->{$_->{problem_id}}->{$_->{judge_id}} = $_->{nick} for @$rows;
+    $result;
+}
+
+# Only the judges listed on the page change; the others stay allowed or not as they were.
+# Every judge allowed is stored as no restriction, so judges added later are allowed too.
+sub _save_problem_judges {
+    my ($p, $judges, $problems) = @_;
+    my $old = _get_problem_judges([ map $_->{id}, @$problems ]);
+    my @all_judges = @{$dbh->selectcol_arrayref(q~SELECT id FROM judges~)};
+    my %checked;
+    for (@{$p->{allowed_judges}}) {
+        my ($judge_id, $problem_id) = split /_/, $_;
+        $checked{$problem_id}->{$judge_id} = 1;
+    }
+    my %shown = map { $_->{judge_id} => 1 } @$judges;
+    my $changed = 0;
+    for my $pr (@$problems) {
+        my $pid = $pr->{id};
+        my $old_judges = $old->{$pid} || { map { $_ => 1 } @all_judges };
+        my @allowed = grep $shown{$_} ? $checked{$pid}->{$_} : $old_judges->{$_}, @all_judges;
+        if (!@allowed) {
+            msg(1253, $pr->{code} // $pid);
+            next;
+        }
+        my %new = @allowed < @all_judges ? map { $_ => 1 } @allowed : ();
+        next if join(',', sort keys %new) eq join(',', sort keys %{$old->{$pid} || {}});
+        $dbh->do(q~
+            DELETE FROM problem_judges WHERE problem_id = ?~, undef,
+            $pid);
+        $dbh->do(q~
+            INSERT INTO problem_judges (problem_id, judge_id) VALUES (?, ?)~, undef,
+            $pid, $_) for sort keys %new;
+        ++$changed;
+    }
+    $dbh->commit;
+    msg(1254, $changed);
+}
+
 sub _qb {
     my ($p, $searches) = @_;
     my $qb = CATS::QueryBuilder->new;
@@ -279,6 +328,16 @@ sub contest_problems_installed_frame {
         ORDER BY CP.code~, { Slice => {} },
         $cid, @p_params);
 
+    _save_problem_judges($p, $judges, $problems) if $p->{save_judges};
+    my $problem_judges = _get_problem_judges([ map $_->{id}, @$problems ]);
+    my %shown_judges = map { $_->{judge_id} => 1 } @$judges;
+    for my $pr (@$problems) {
+        my $pj = $problem_judges->{$pr->{id}} or next;
+        $pr->{judges} = join ', ', sort values %$pj;
+        # Its submissions wait until one of the allowed judges is alive and may test this contest.
+        $pr->{no_judges} = !grep $shown_judges{$_}, keys %$pj;
+    }
+
     my $already_installed = $dbh->selectall_arrayref(qq~
         SELECT J.id as judge_id , P.id as problem_id, JB.finish_time FROM jobs JB
         INNER JOIN judges J on J.id = JB.judge_id
@@ -305,12 +364,15 @@ sub contest_problems_installed_frame {
             ($is_root ? (href_judge => url_f('judges_edit', id => $judge_id)) : ()),
             row => [ map {
                 push @{$problems_to_install->{$judge_id}}, $_->{id}
-                    if !$hr->{$_->{id}} && $p->{install_missing};
+                    if !$hr->{$_->{id}} && $p->{install_missing} &&
+                        (!$problem_judges->{$_->{id}} || $problem_judges->{$_->{id}}->{$judge_id});
                 $judge_problems_now->{$judge_id}->{$_->{id}} = my $now = [];
+                my $pj = $problem_judges->{$_->{id}};
                 {
                     judge_problem => $judge_id . '_' . $_->{id},
                     value => $hr->{$_->{id}} || '',
                     now => $now,
+                    allowed => !$pj || $pj->{$judge_id} ? 1 : 0,
                 }
             } @$problems ],
         }

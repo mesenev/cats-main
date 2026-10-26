@@ -3,5 +3,11 @@
     search => 'search',
     install_missing => 'install missing',
     install_selected => 'install selected',
+    allowed => 'allowed',
+    judges => 'Judges',
+    allowed_judges => 'Judges allowed to test submissions to the problem',
+    no_judges => 'No allowed judge can test it now',
+    save_judges => 'save allowed judges',
+    allowed_judges_hint => 'The "allowed" boxes choose which judges may test submissions to each problem, in every contest that uses it. All checked means any judge, including judges added later.',
   })
 %]

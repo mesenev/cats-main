@@ -293,6 +293,14 @@ CREATE TABLE problem_de_bitmap_cache (
     de_bits2    BIGINT DEFAULT 0
 );
 
+/* Judges allowed to test the problem's submissions. No rows: any judge. */
+CREATE TABLE problem_judges (
+    problem_id  INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+    judge_id    INTEGER NOT NULL REFERENCES judges(id) ON DELETE CASCADE,
+
+    CONSTRAINT problem_judges_pk PRIMARY KEY (problem_id, judge_id)
+);
+
 CREATE TABLE contest_problems (
     id              INTEGER NOT NULL PRIMARY KEY,
     problem_id      INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,

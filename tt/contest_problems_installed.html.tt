@@ -3,6 +3,8 @@
   <style>
     table.judges_problems td { text-align: right; }
     table.judges_problems th { max-width: 20em; vertical-align: top; }
+    table.judges_problems td.not_allowed { opacity: 0.5; }
+    table.judges_problems .allowed_judge { white-space: nowrap; }
   </style>
 [% END %]
 
@@ -20,7 +22,9 @@
 <table class="judges_problems internal_borders highlight">
 <thead>
   <tr class="[% loop.parity %]">
-    <th>[% FOREACH p IN problems %]<th>[% p.code %]. <small>[% p.title %]</small></th>[% END %]
+    <th>[% FOREACH p IN problems %]<th>[% p.code %]. <small>[% p.title %]</small>
+      [%- IF p.judges %]<br/><small title="[% capt.allowed_judges %]">[% capt.judges %]: [% p.judges | html %]</small>[% END %]
+      [%- IF p.no_judges %]<br/><b><small>[% capt.no_judges %]</small></b>[% END %]</th>[% END %]
   </tr>
 </thead>
 <tbody>
@@ -28,10 +32,13 @@
     <tr class="[% loop.parity %]">
       <td>[% maybe_href(line.href_judge, line.judge_name) %]</td>
       [% FOREACH d IN line.row %]
-        <td><label>
+        <td[% ' class="not_allowed"' UNLESS d.allowed %]><label>
           [% d.value %]
           [% capt.jobs.states.item(job_state_to_name.item(d.now.0)) IF d.now.size %]
-          <input type="checkbox" name="selected_problems" value="[% d.judge_problem %]"/>
+          <input type="checkbox" name="selected_problems" value="[% d.judge_problem %]" title="[% capt.install_selected %]"/>
+        </label>
+        <br/><label class="allowed_judge" title="[% capt.allowed_judges %]"><small>[% capt.allowed %]</small>
+          <input type="checkbox" name="allowed_judges" value="[% d.judge_problem %]"[% ' checked="checked"' IF d.allowed %]/>
         </label></td>
       [% END %]
     </tr>
@@ -42,6 +49,8 @@
 </br>
 <button type="submit" name="install_missing" value="1" class="button">[% capt.install_missing %]</button>
 <button type="submit" name="install_selected" value="1" class="button">[% capt.install_selected %]</button>
+<button type="submit" name="save_judges" value="1" class="button">[% capt.save_judges %]</button>
+<p><small>[% capt.allowed_judges_hint %]</small></p>
 </form>
 
 [% PROCESS includes/menu_end.tti %]

@@ -467,3 +467,5 @@
 1250 "Contests containing topic '%s'."
 1251 "Topics added: %d."
 1252 "No development environment is allowed for this problem in this contest."
+1253 "Problem %s: at least one judge must be allowed."
+1254 "Problems with changed allowed judges: %d."

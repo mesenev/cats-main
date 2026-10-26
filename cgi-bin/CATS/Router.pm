@@ -77,6 +77,8 @@ my $main_routes = {
         install_missing => bool,
         install_selected => bool,
         selected_problems => array_of qr/^\d+_\d+$/,
+        save_judges => bool,
+        allowed_judges => array_of qr/^\d+_\d+$/,
     ],
     contest_wikis => [ \&CATS::UI::ContestWikis::contest_wikis_frame,
         delete => integer, saved => integer, ],

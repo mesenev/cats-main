@@ -569,11 +569,22 @@ sub select_request {
                 FROM contest_accounts CA
                 INNER JOIN judges J ON CA.account_id = J.account_id
                 WHERE common.contest_id = CA.contest_id AND J.id = ?
-            ) AND common.judge_id IS NULL OR';
+            ) AND common.judge_id IS NULL';
         push @params, $p->{jid};
     }
     elsif ($p->{pin_mode} == $cats::judge_pin_any) {
-        $pin_condition = 'common.judge_id IS NULL AND COALESCE(C.pinned_judges_only, 0) = 0 OR';
+        $pin_condition = 'common.judge_id IS NULL AND COALESCE(C.pinned_judges_only, 0) = 0';
+    }
+
+    if ($pin_condition) {
+        # A problem may restrict its submissions to some judges (problem_judges, none means any).
+        # A submission pinned to a judge explicitly (common.judge_id) ignores the restriction.
+        $pin_condition = qq~($pin_condition AND (
+            common.type NOT IN ($cats::job_type_submission, $cats::job_type_submission_part) OR
+            NOT EXISTS (SELECT 1 FROM problem_judges PJ WHERE PJ.problem_id = common.problem_id) OR
+            EXISTS (SELECT 1 FROM problem_judges PJ WHERE PJ.problem_id = common.problem_id AND PJ.judge_id = ?)
+        )) OR~;
+        push @params, $p->{jid};
     }
 
     push @params, $p->{jid};
