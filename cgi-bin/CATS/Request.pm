@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use CATS::Constants;
-use CATS::DB;
+use CATS::DB qw(:DEFAULT $db);
 use CATS::DeBitmaps;
 use CATS::Globals;
 use CATS::IP;
@@ -188,7 +188,17 @@ sub insert {
 # source_p: src, de_id
 sub update_source {
     my ($request_id, $source_p, $de_bitmap) = @_;
-    $dbh->do(_u $sql->update(sources => $source_p, { req_id => $request_id }));
+    # src is a BLOB: bound as a string, Postgres reads its backslashes as bytea escapes.
+    my @fields = sort keys %$source_p;
+    my $c = $dbh->prepare(sprintf q~
+        UPDATE sources SET %s WHERE req_id = ?~, join ', ', map "$_ = ?", @fields);
+    my $i = 0;
+    for (@fields) {
+        ++$i;
+        $_ eq 'src' ? $db->bind_blob($c, $i, $source_p->{$_}) : $c->bind_param($i, $source_p->{$_});
+    }
+    $c->bind_param(++$i, $request_id);
+    $c->execute;
 
     $dbh->do(_u $sql->update('req_de_bitmap_cache', {
         req_id => $request_id,
