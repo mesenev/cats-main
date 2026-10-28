@@ -17,7 +17,7 @@ FROM registry.mesenev.ru/mesenev/cats-judge@sha256:c8e707f42acec4a73a85cebea51ff
 # python3.15's runtime deps.
 # The host's cats-judge/config/autodetect.xml points #python (DE 502) at
 # /opt/python3.15/bin/python3.15, #pypy (DE 510) at /opt/pypy3.11/bin/pypy3.11
-# and enables DE 510; Go (DE 404) is below.
+# and enables DE 510; Go (DE 404) and GHC (DE 503) are below.
 # When a compiler or interpreter version changes, update the DE names users
 # see (default_de.description, see sql/migrations/20261028-de-versions.sql).
 RUN apt-get update \
@@ -92,6 +92,56 @@ RUN wget -q -O /tmp/pypy.tgz https://downloads.python.org/pypy/pypy3.11-v${PYPY_
     && /opt/pypy3.11/bin/pypy3.11 -m compileall -q /opt/pypy3.11/lib/pypy3.11 > /dev/null; \
     cd /tmp && /opt/pypy3.11/bin/pypy3.11 -c 'import sys, sqlite3, ssl, numpy; from itertools import pairwise; assert sys.version_info[:2] == (3, 11); assert numpy.__version__ == "2.4.6"; assert numpy.arange(4).sum() == 6'
 
+# GHC backs DE 503 (Haskell): the official bindist of ghcup's "Recommended"
+# release and cabal-install, both pinned by checksum. GHC's own libraries are
+# Haskell's standard library (base, containers, array, bytestring, text, mtl,
+# transformers, parsec, deepseq, ...). On top of them, the packages judges
+# usually offer: vector, unordered-containers, hashable, random, split and
+# their dependencies, built from a pinned Hackage index-state at pinned
+# versions and registered in GHC's global package database, so a plain `ghc`
+# sees them. Docs and profiling libraries are dropped (they double the size);
+# cabal and its Hackage index are only needed here.
+ARG GHC_VERSION=9.10.3
+ARG GHC_SHA256=1ac63f04eac0ad551d45cbde38f27e0e3f43ceefd98833fae1fa3f2dbd042367
+ARG CABAL_VERSION=3.16.1.0
+ARG CABAL_SHA256=209987f6abdd1119f6b2674a0d1012857a783464774708cb4f3fd9e156ea7bea
+ARG HACKAGE_INDEX_STATE=2026-10-01T00:00:00Z
+ARG GHC_PACKAGES="vector-0.13.2.0 primitive-0.9.1.0 vector-stream-0.1.0.1 hashable-1.5.1.0 unordered-containers-0.2.21 random-1.3.1 splitmix-0.1.3.2 split-0.2.5.1"
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgmp-dev libffi-dev libnuma-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && wget -q -O /tmp/ghc.tar.xz https://downloads.haskell.org/~ghc/${GHC_VERSION}/ghc-${GHC_VERSION}-x86_64-deb12-linux.tar.xz \
+    && echo "${GHC_SHA256}  /tmp/ghc.tar.xz" | sha256sum -c - \
+    && tar -C /tmp -xJf /tmp/ghc.tar.xz \
+    && cd /tmp/ghc-${GHC_VERSION}-x86_64-unknown-linux \
+    && ./configure --prefix=/opt/ghc > /dev/null \
+    && make install > /dev/null \
+    && cd / && rm -rf /tmp/ghc.tar.xz /tmp/ghc-${GHC_VERSION}-x86_64-unknown-linux /opt/ghc/share/doc \
+    && find /opt/ghc \( -name '*.p_hi' -o -name '*.p_o' -o -name '*_p.a' \) -delete \
+    && wget -q -O /tmp/cabal.tar.xz https://downloads.haskell.org/~cabal/cabal-install-${CABAL_VERSION}/cabal-install-${CABAL_VERSION}-x86_64-linux-deb12.tar.xz \
+    && echo "${CABAL_SHA256}  /tmp/cabal.tar.xz" | sha256sum -c - \
+    && tar -C /tmp -xJf /tmp/cabal.tar.xz \
+    && export CABAL_DIR=/tmp/cabal-home \
+    && /tmp/cabal update "hackage.haskell.org,${HACKAGE_INDEX_STATE}" \
+    && /tmp/cabal --store-dir=/opt/ghc-packages install -w /opt/ghc/bin/ghc \
+        --lib --package-env /tmp/ghc-env ${GHC_PACKAGES} \
+    && for p in ${GHC_PACKAGES}; do \
+        set -- /opt/ghc-packages/ghc-${GHC_VERSION}-*/package.db/$p-[0-9a-f]*.conf; \
+        [ $# -eq 1 ] && [ -f "$1" ] && cp "$1" /opt/ghc/lib/ghc-${GHC_VERSION}/lib/package.conf.d/ || exit 1; \
+    done \
+    && /opt/ghc/bin/ghc-pkg recache && /opt/ghc/bin/ghc-pkg check \
+    && rm -rf /tmp/cabal /tmp/cabal.tar.xz /tmp/cabal-home /tmp/ghc-env
+RUN cd /tmp && printf '%s\n' \
+        'import qualified Data.Map.Strict as M' 'import qualified Data.Vector.Unboxed as V' \
+        'import qualified Data.HashMap.Strict as H' 'import qualified Data.ByteString.Char8 as B' \
+        'import Data.Array' 'import Data.List.Split (splitOn)' 'import System.Random' \
+        'import Control.Monad.State' \
+        'main = print (M.size (M.fromList [(1, 2)]), V.sum (V.enumFromTo 1 (10 :: Int)), H.size (H.singleton (1 :: Int) ()), B.length (B.pack "ab"), bounds (listArray (0, 1) "ab"), splitOn "," "a,b", fst (randomR (1, 1 :: Int) (mkStdGen 0)), evalState get (7 :: Int))' \
+        > t.hs \
+    && /opt/ghc/bin/ghc -O2 -o t.exe t.hs > /dev/null \
+    && ./t.exe | grep -qx '(1,55,1,2,(0,1),\["a","b"\],1,7)' \
+    && rm -f t.*
+
 # Bake the same DE settings into the image's own config, for judges that run
 # it without bind-mounting /app (prod's judge mounts /app, so this is unused there).
 RUN sed -i \
@@ -100,9 +150,13 @@ RUN sed -i \
         -e 's|<de code="510" enabled="0" />|<de code="510" enabled="1" />|' \
         -e 's|<define name="#go" de_code_autodetect="404" value="[^"]*" />|<define name="#go" de_code_autodetect="404" value="/usr/local/go/bin/go" />|' \
         -e 's|<de code="404" enabled="0" />|<de code="404" enabled="1" />|' \
+        -e 's|<define name="#haskell" de_code_autodetect="503" value="[^"]*" />|<define name="#haskell" de_code_autodetect="503" value="/opt/ghc/bin/ghc" />|' \
+        -e 's|<de code="503" enabled="0" />|<de code="503" enabled="1" />|' \
         /app/config/autodetect.xml \
     && grep -q 'value="/opt/python3.15/bin/python3.15"' /app/config/autodetect.xml \
     && grep -q 'value="/opt/pypy3.11/bin/pypy3.11"' /app/config/autodetect.xml \
     && grep -q '<de code="510" enabled="1" />' /app/config/autodetect.xml \
     && grep -q 'value="/usr/local/go/bin/go"' /app/config/autodetect.xml \
-    && grep -q '<de code="404" enabled="1" />' /app/config/autodetect.xml
+    && grep -q '<de code="404" enabled="1" />' /app/config/autodetect.xml \
+    && grep -q 'value="/opt/ghc/bin/ghc"' /app/config/autodetect.xml \
+    && grep -q '<de code="503" enabled="1" />' /app/config/autodetect.xml

@@ -337,7 +337,7 @@
 <!-- Haskell -->
 <de
     code="503"
-    compile='"#haskell" %full_name'
+    compile='"#haskell" -O2 "%full_name" -o "%name.exe"'
     run='"%name.exe"'
     run_interactive='"%name.exe"'
     generate='"%name.exe" %args'

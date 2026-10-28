@@ -13,6 +13,7 @@ sub _detect {
     my ($self) = @_;
     env_path($self, 'ghc');
     which($self, 'ghc');
+    folder($self, '/opt/ghc/bin/', 'ghc');
     program_files($self, 'Haskell Platform/*/bin', 'ghc');
     registry_glob($self, 'Haskell/Haskell Platform/*/InstallDir', 'bin', 'ghc');
 }
