@@ -15,6 +15,7 @@ sub _detect {
     which($self, 'pypy3');
     drives($self, 'pypy', 'pypy3');
     folder($self, '/usr/bin/', 'pypy3');
+    folder($self, '/opt/pypy3.11/bin/', 'pypy3.11');
     pbox($self, 'pypy3', '', 'pypy3');
 }
 

@@ -12,10 +12,14 @@ FROM registry.mesenev.ru/mesenev/cats-judge@sha256:c8e707f42acec4a73a85cebea51ff
 # scipy and requests (problem 43442's lint_repo.py verifies a submitted GitHub
 # commit URL through the GitHub API). The system python3 gets requests too, so
 # pointing #python back at /usr/bin/python3 remains a working rollback.
-# pypy3 backs DE 510 (PyPy 3). bubblewrap is for cmd/sp-sandbox. The libraries
-# are python3.15's runtime deps.
+# Debian's pypy3 (Python 3.9) backed DE 510 before PyPy 3.11 (below) and stays
+# for rollback. bubblewrap is for cmd/sp-sandbox. The libraries are
+# python3.15's runtime deps.
 # The host's cats-judge/config/autodetect.xml points #python (DE 502) at
-# /opt/python3.15/bin/python3.15 and enables DE 510; Go (DE 404) is below.
+# /opt/python3.15/bin/python3.15, #pypy (DE 510) at /opt/pypy3.11/bin/pypy3.11
+# and enables DE 510; Go (DE 404) is below.
+# When a compiler or interpreter version changes, update the DE names users
+# see (default_de.description, see sql/migrations/20261028-de-versions.sql).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3-requests pypy3 bubblewrap \
         libssl3 libffi8 zlib1g libbz2-1.0 liblzma5 libsqlite3-0 libreadline8 \
@@ -65,16 +69,40 @@ RUN wget -q -O /tmp/${PYPY_NUMPY_WHL} ${PYPY_NUMPY_URL} \
     && pypy3 -m compileall -q /usr/local/lib/pypy3.9/dist-packages > /dev/null; \
     cd /tmp && pypy3 -c 'import numpy, requests; assert numpy.__version__ == "1.26.4"; assert numpy.arange(4).sum() == 6'
 
+# PyPy 3.11 backs DE 510. Debian's pypy3 is Python 3.9, so solutions using
+# `int | None` annotations or itertools.pairwise failed there with a runtime
+# error. The official pypy.org build and numpy's wheel, both pinned by
+# checksum. PyPy 7.3.x, not 8.0: PyPy 8.0 changed the ABI tag to pp80 and numpy
+# publishes no wheels for it. Bytecode is compiled here because the sandbox's
+# filesystem is read-only.
+ARG PYPY_VERSION=7.3.23
+ARG PYPY_SHA256=2bcab031cef7a37fe1930b51f7091e78a191ae63f80eca00a265d3378c3a645b
+ARG PYPY311_NUMPY_WHL=numpy-2.4.6-pp311-pypy311_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+ARG PYPY311_NUMPY_URL=https://files.pythonhosted.org/packages/1a/b0/413077f6b1153ed3cba361401c6783bbad6114804a000cc22eb71c13e190/${PYPY311_NUMPY_WHL}
+ARG PYPY311_NUMPY_SHA256=8ad03c0965fb3c692200e74d458ca28c1dbb4ce96f9a479a8aa041ad5fabca02
+RUN wget -q -O /tmp/pypy.tgz https://downloads.python.org/pypy/pypy3.11-v${PYPY_VERSION}-linux64.tar.gz \
+    && echo "${PYPY_SHA256}  /tmp/pypy.tgz" | sha256sum -c - \
+    && mkdir /opt/pypy3.11 \
+    && tar -C /opt/pypy3.11 --strip-components=1 -xzf /tmp/pypy.tgz \
+    && rm /tmp/pypy.tgz \
+    && wget -q -O /tmp/${PYPY311_NUMPY_WHL} ${PYPY311_NUMPY_URL} \
+    && echo "${PYPY311_NUMPY_SHA256}  /tmp/${PYPY311_NUMPY_WHL}" | sha256sum -c - \
+    && unzip -q /tmp/${PYPY311_NUMPY_WHL} -d /opt/pypy3.11/lib/pypy3.11/site-packages \
+    && rm /tmp/${PYPY311_NUMPY_WHL} \
+    && /opt/pypy3.11/bin/pypy3.11 -m compileall -q /opt/pypy3.11/lib/pypy3.11 > /dev/null; \
+    cd /tmp && /opt/pypy3.11/bin/pypy3.11 -c 'import sys, sqlite3, ssl, numpy; from itertools import pairwise; assert sys.version_info[:2] == (3, 11); assert numpy.__version__ == "2.4.6"; assert numpy.arange(4).sum() == 6'
+
 # Bake the same DE settings into the image's own config, for judges that run
 # it without bind-mounting /app (prod's judge mounts /app, so this is unused there).
 RUN sed -i \
         -e 's|<define name="#python" de_code_autodetect="502" value="[^"]*" />|<define name="#python" de_code_autodetect="502" value="/opt/python3.15/bin/python3.15" />|' \
-        -e 's|<define name="#pypy" de_code_autodetect="510" value="[^"]*" />|<define name="#pypy" de_code_autodetect="510" value="/usr/bin/pypy3" />|' \
+        -e 's|<define name="#pypy" de_code_autodetect="510" value="[^"]*" />|<define name="#pypy" de_code_autodetect="510" value="/opt/pypy3.11/bin/pypy3.11" />|' \
         -e 's|<de code="510" enabled="0" />|<de code="510" enabled="1" />|' \
         -e 's|<define name="#go" de_code_autodetect="404" value="[^"]*" />|<define name="#go" de_code_autodetect="404" value="/usr/local/go/bin/go" />|' \
         -e 's|<de code="404" enabled="0" />|<de code="404" enabled="1" />|' \
         /app/config/autodetect.xml \
     && grep -q 'value="/opt/python3.15/bin/python3.15"' /app/config/autodetect.xml \
+    && grep -q 'value="/opt/pypy3.11/bin/pypy3.11"' /app/config/autodetect.xml \
     && grep -q '<de code="510" enabled="1" />' /app/config/autodetect.xml \
     && grep -q 'value="/usr/local/go/bin/go"' /app/config/autodetect.xml \
     && grep -q '<de code="404" enabled="1" />' /app/config/autodetect.xml

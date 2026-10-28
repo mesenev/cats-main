@@ -52,7 +52,7 @@ services:
     cgroup: host
     # Built from dockerfiles/cats-judge.dockerfile on a dev machine and pushed to
     # the registry; hosts just `docker compose pull judge`. Bump the tag per build.
-    image: registry.mesenev.ru/mesenev/cats-judge:2026-10-23c
+    image: registry.mesenev.ru/mesenev/cats-judge:2026-10-28
     build:
       context: ./dockerfiles
       dockerfile: cats-judge.dockerfile
