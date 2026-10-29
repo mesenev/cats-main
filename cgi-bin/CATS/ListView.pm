@@ -260,7 +260,8 @@ sub order_by {
         $pre_sort // $self->{pre_sort} // (),
         $c && ref $c->{order_by} ne 'CODE' ? _order_by_apply_dir($c->{order_by}, $s->{sort_dir}) : (),
     );
-    @order ? 'ORDER BY ' . join(', ', @order) : '';
+    # Leading space: callers append this right after a condition, as in 'WHERE 1 = 1~ . $lv->order_by'.
+    @order ? ' ORDER BY ' . join(', ', @order) : '';
 }
 
 sub where { $_[0]->{where} ||= $_[0]->make_where }
