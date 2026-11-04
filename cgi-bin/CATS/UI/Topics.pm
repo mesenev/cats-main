@@ -17,7 +17,7 @@ sub _rename_problems {
     my ($old_prefix, $new_prefix) = @_;
     my $problems = $dbh->selectall_arrayref(q~
         SELECT id, code FROM contest_problems
-        WHERE contest_id = ? AND code STARTS WITH ?~, { Slice => {} },
+        WHERE contest_id = ? AND POSITION(? IN code) = 1~, { Slice => {} },
         $cid, $old_prefix);
     @$problems or return;
     my $sth = $dbh->prepare(q~
@@ -53,7 +53,7 @@ our $form = CATS::Form->new(
         $fd->{data}->{problems} = $prefix ne '' && $dbh->selectall_arrayref(q~
             SELECT P.id, CP.code, P.title
             FROM problems P INNER JOIN contest_problems CP ON CP.problem_id = P.id
-            WHERE CP.contest_id = ? AND CP.code STARTS WITH ?
+            WHERE CP.contest_id = ? AND POSITION(? IN CP.code) = 1
             ORDER BY CP.code~, { Slice => {} },
             $cid, $prefix);
         $fd->{data}->{href_problems} = $prefix ne '' && url_f('problems', search => 'code^=' . $prefix);
