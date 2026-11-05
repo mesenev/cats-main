@@ -3,8 +3,6 @@ package CATS::UI::UserDetails;
 use strict;
 use warnings;
 
-use Storable;
-
 use CATS::AccGroups;
 use CATS::Constants;
 use CATS::Contest::Participate;
@@ -16,7 +14,7 @@ use CATS::IP;
 use CATS::Messages qw(msg res_str);
 use CATS::Output qw(init_template url_f url_f_cid search);
 use CATS::Privileges;
-use CATS::Settings qw($settings);
+use CATS::Settings qw($settings decode_settings);
 use CATS::Time;
 use CATS::User;
 use CATS::Utils qw(url_function);
@@ -229,7 +227,7 @@ sub user_settings_frame {
         team_name => $team_name,
         title_suffix => $team_name,
         settings_dump => $user_settings &&
-            CATS::Settings::as_dump(eval { Storable::thaw($user_settings) } || {}),
+            CATS::Settings::as_dump(decode_settings($user_settings) // {}),
     );
 }
 

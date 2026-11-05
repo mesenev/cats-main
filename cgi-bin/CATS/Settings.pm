@@ -6,7 +6,7 @@ use warnings;
 use JSON::XS;
 use Exporter qw(import);
 
-our @EXPORT_OK = qw($settings);
+our @EXPORT_OK = qw($settings decode_settings);
 
 use Data::Dumper;
 use Encode qw();
@@ -21,25 +21,30 @@ our $settings;
 
 my $enc_settings;
 
+sub decode_settings {
+    my ($enc) = @_;
+    $enc // return {};
+    return {} if $enc eq '';
+    my $decoded = eval { JSON::XS::decode_json($enc) };
+    return $decoded if ref $decoded eq 'HASH';
+    $decoded = eval { Storable::thaw($enc) };
+    return $decoded if ref $decoded eq 'HASH';
+    undef;
+}
+
 sub init {
     ($enc_settings, my $lang, my $cookie) = @_;
     if (!$uid) {
         $enc_settings = $cookie || '';
         $enc_settings = decode_base64($enc_settings) if $enc_settings;
     }
-    
-    # If any problem happens during the thaw, clear settings.
-    $settings = eval {
-        $enc_settings && length($enc_settings) > 2  # "{}" = минимальный валидный JSON
-            ? JSON::XS::decode_json($enc_settings)
-            : {}
-    } || do {
+
+    $settings = decode_settings($enc_settings) // do {
         # A stale or foreign browser cookie is routine; only bad stored data is worth a warning.
-        warn "[SETTINGS] Reset for uid=$uid: invalid data (old Storable or corrupted)" if $uid;
+        warn "[SETTINGS] Reset for uid=$uid: invalid data" if $uid;
         {};
     };
-    
-    $settings = {} unless ref($settings) eq 'HASH';
+
     $settings->{lang} = $lang if $lang && grep $_ eq $lang, @cats::langs;
 }
 

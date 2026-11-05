@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use Encode;
-use Storable;
 
 use JSON::XS qw(encode_json);
 use CATS::Config;
@@ -18,7 +17,7 @@ use CATS::Messages qw(msg res_str);
 use CATS::Output qw(search url_f);
 use CATS::Privileges;
 use CATS::RankTable::Cache;
-use CATS::Settings qw($settings);
+use CATS::Settings qw($settings decode_settings);
 
 my $hash_password;
 BEGIN {
@@ -77,8 +76,10 @@ sub load {
         ($self->{contest_id} // ()), $id
     ) or return;
     $self->{country} ||= $CATS::Countries::countries[0]->{id};
-    $self->{settings} = eval { Storable::thaw($self->{frozen_settings} = $self->{settings}) } // {}
-        if $self->{settings};
+    if ($self->{settings}) {
+        $self->{frozen_settings} = $self->{settings};
+        $self->{settings} = decode_settings($self->{settings}) // {};
+    }
     $_->{selected} = $_->{id} eq $self->{country} for @CATS::Countries::countries;
     $self;
 }

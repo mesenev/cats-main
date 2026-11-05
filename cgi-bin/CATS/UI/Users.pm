@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use Encode;
-use Storable;
 
 use CATS::Awards;
 use CATS::Constants;
@@ -16,6 +15,7 @@ use CATS::Messages qw(msg res_str);
 use CATS::Output qw(init_template search url_f);
 use CATS::Privileges;
 use CATS::RankTable::Cache;
+use CATS::Settings qw(decode_settings);
 use CATS::Time;
 use CATS::User;
 
@@ -530,7 +530,7 @@ sub users_all_settings_frame {
     my $selector = $lv->settings->{selector};
     my $fetch_record = sub {
         my $row = $_[0]->fetchrow_hashref or return ();
-        my $all_settings = $row->{settings} && eval { Storable::thaw($row->{settings}) } || '';
+        my $all_settings = $row->{settings} ? decode_settings($row->{settings}) // {} : '';
         if ($all_settings && $selector) {
             for (split /\./, $selector) {
                 $all_settings = $all_settings->{$_} or last;
