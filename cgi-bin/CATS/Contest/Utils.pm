@@ -16,7 +16,6 @@ use CATS::StaticPages;
 use CATS::Time;
 use CATS::Utils qw(url_function date_to_iso);
 
-# Avoid CATS::Output to work on Travis.
 sub url_f { CATS::Utils::url_function(@_, sid => $sid, cid => $cid) }
 sub url_f_cid { CATS::Utils::url_function(@_, sid => $sid) }
 

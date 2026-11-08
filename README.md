@@ -1,7 +1,5 @@
 # CATS: Programming contest control system
 
-[![Build Status](https://travis-ci.org/klenin/cats-main.svg?branch=master)](https://travis-ci.org/klenin/cats-main)
-
 ## Overview
 
 CATS is a software for managing programming problems, organizing competitions,

@@ -109,8 +109,7 @@ run_subtest 'Terminate reasons', 5 * compile_plan + 10, sub {
         { tr => $TR_TIME_LIMIT, params => { tl => 0.3, tl_min => 0.3, tl_max => 0.5 }},
     ]);
 
-    # TODO: For some reason, program writes too much specifically on AppVeyor.
-    my $wl_max = ($ENV{APPVEYOR} ? 4 : 0.5) * MB;
+    my $wl_max = 0.5 * MB;
 
     $run_tr_test->('TR_OK, TR_WRITE_LIMIT', [
         { tr => $TR_OK, params => { exit_code => 1 }},

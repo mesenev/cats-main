@@ -1,7 +1,6 @@
-# Prod's judge image, built locally. The registry image was built by a CI
-# workflow in the old cats-judge repo, which no longer exists, so extend the
-# exact image prod was running (pinned by digest, so a later push to :latest
-# can't silently change the judge) with what it was missing.
+# Prod's judge image, built locally. Extend the exact image prod was running
+# (pinned by digest, so a later push to :latest can't silently change the judge)
+# with what it was missing.
 #
 # Replace this with a from-scratch build once cats-judge/Dockerfile reproduces
 # prod's judge (it currently differs: render.py-baked config, no numpy/scipy).

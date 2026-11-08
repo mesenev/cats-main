@@ -1,0 +1,42 @@
+name: judge-image
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - cats-judge/**
+      - .github/workflows/judge-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: judge-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: registry
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: registry.mesenev.ru
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: cats-judge
+          file: cats-judge/Dockerfile
+          push: true
+          tags: |
+            registry.mesenev.ru/mesenev/cats-judge:latest
+            registry.mesenev.ru/mesenev/cats-judge:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
