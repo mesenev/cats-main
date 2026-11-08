@@ -3,6 +3,8 @@ package CATS::Judge::DirectDatabase;
 use strict;
 use warnings;
 
+use Encode qw();
+
 use CATS::Config;
 use CATS::Constants;
 use CATS::DB qw($dbh);
@@ -142,7 +144,7 @@ sub select_request {
 
 sub save_logs {
     my ($self, $job_id, $dump) = @_;
-    CATS::JudgeDB::save_logs($job_id, $dump);
+    CATS::JudgeDB::save_logs($job_id, Encode::encode_utf8($dump));
 }
 
 sub update_dev_env {

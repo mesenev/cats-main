@@ -94,6 +94,9 @@ sub prepare_redirect {
 }
 
 my $stderr_encoding = $^O eq 'MSWin32' ? 'WINDOWS-1251' : 'UTF-8';
+# The log holds characters, so child output must be decoded before it is saved,
+# or it is encoded twice. Linux programs write UTF-8 unless the DE says otherwise.
+my $child_encoding = $^O eq 'MSWin32' ? undef : 'UTF-8';
 
 # file, show, save, color
 sub _dump_child {
@@ -103,13 +106,14 @@ sub _dump_child {
     my $save = $self->opts->{$p{save}} || $globals->{section} || $globals->{save_output};
     my $duplicate_to = $globals->{duplicate_output};
     my $color = $self->opts->{color}->{$p{color}};
+    my $encoding = $globals->{encoding} // $child_encoding;
 
     open(my $fstdout, '<', $self->opts->{$p{file}})
         or return $log->msg("open failed: '%s' ($!)\n", $self->opts->{$p{file}});
 
     my $eol = 0;
     while (<$fstdout>) {
-        $_ = Encode::decode($globals->{encoding}, $_) if $globals->{encoding};
+        $_ = Encode::decode($encoding, $_) if $encoding;
         if ($show) {
             my $e = Encode::encode($stderr_encoding, $_);
             print STDERR $color ? colored($e, $color) : $e;
