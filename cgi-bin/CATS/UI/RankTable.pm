@@ -113,6 +113,8 @@ sub _set_selected {
 sub rank_table_frame {
     my ($p) = @_;
 
+    return rank_table($p, 'rank_table') if $p->{json};
+
     #rank_table($p, 'rank_table.htm');
     #init_template($p, 'rank_table_content.htm');
     init_template($p, 'rank_table');
