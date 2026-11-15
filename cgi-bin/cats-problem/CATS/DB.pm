@@ -169,6 +169,10 @@ sub sql_connect {
         die 'Error in sql_connect';
     }
 
+    if ($dbh && !$dbh->ping) {
+        eval { $dbh->disconnect };
+        undef $dbh;
+    }
     $dbh ||= DBI->connect(
         $db->make_dsn, $CATS::Config::db->{user}, $CATS::Config::db->{password},
         {
