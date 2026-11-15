@@ -23,6 +23,7 @@ use CATS::Messages qw(msg);
 use CATS::Settings;
 use CATS::Template;
 use CATS::Utils qw();
+use CATS::Version qw(current_commit);
 
 my ($http_mime_type, %extra_headers);
 
@@ -69,6 +70,7 @@ sub init_template {
         messages => CATS::Messages::get,
         user => $user,
         contest => $contest,
+        commit_hash => current_commit(cats_dir() . '/..'),
         href_contest_title => url_f($user->{is_jury} ? 'contest_params' : 'problems'),
         noiface => $p->{noiface},
         settings => $CATS::Settings::settings,

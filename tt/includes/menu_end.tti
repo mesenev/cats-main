@@ -12,6 +12,7 @@
   </td>
   <td>
     <a href="https://github.com/klenin/cats-main">[% PROCESS includes/github_icon.tti %] [% capt.development %]</a>[%
+    %][% IF commit_hash %]<a href="https://github.com/mesenev/cats-main/commit/[% commit_hash %]" title="[% commit_hash %]">[% commit_hash.substr(0, 8) %]</a>[% END %][%
     %]<a href="docs/index.[% lang  == 'ru' ? 'ru' : 'en' %].html">[% capt.docs %]</a>[%
     %]<a href="docs/authors.html">&copy; 2002-2022 [% capt.authors %]</a>
   </td>
