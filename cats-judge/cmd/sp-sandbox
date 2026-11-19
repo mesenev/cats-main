@@ -15,8 +15,8 @@
 #    test answers), stored solutions and logs, and secret environment variables;
 #  - no capabilities and its own PID/IPC/UTS namespaces (it can neither
 #    remount, mount devices nor see or signal the judge);
-#  - no network at all for contestant solutions (runs judge.pl starts with
-#    -active-connection-count=0). Compilers, checkers and linters keep the
+#  - no network at all for contestant compilation and execution (both use
+#    -active-connection-count=0). Separate checkers and linters keep the
 #    network: they are problem-author code, and some (e.g. a lint that checks
 #    a GitHub URL) need it.
 use strict;

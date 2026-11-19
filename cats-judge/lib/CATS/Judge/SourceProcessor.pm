@@ -72,6 +72,7 @@ sub compile {
     my %limits = map { $compile_limits->{$_} ? ($_ => $compile_limits->{$_}) : () }
         @cats::limits_fields;
     $limits{deadline} = $limits{time_limit} if $limits{time_limit};
+    $limits{active_connections} = 0;
 
     if ($de->{compile_precompile}) {
         my $sp_report = $self->sp->run_single({
