@@ -180,7 +180,7 @@ sub write_to_log {
             $log->msg("abnormal termination. code: $item->{exit_code}, status: $item->{exit_code}\n");
         }
         elsif ($reason == $TR_SECURITY) {
-            $log->msg("secirity violated: $item->{original_terminate_reason}\n");
+            $log->msg("security violation: $item->{original_terminate_reason}\n");
         }
         my $c = $item->{consumed};
         $log->msg(sprintf

@@ -4,7 +4,7 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use FindBin;
-use Test::More tests => 18;
+use Test::More tests => 22;
 
 use lib File::Spec->catdir($FindBin::Bin, '..', 'lib');
 use lib File::Spec->catdir($FindBin::Bin, '..', 'lib', 'cats-problem');
@@ -54,18 +54,18 @@ for my $target (qw(stdout.txt stderr.txt report.txt)) {
     my $log = $spawner->opts->{logger};
     my $program = CATS::Spawner::Program->new("{$^X}", [
         '-e',
-        '{print STDOUT "legitimate\n"; print STDERR "warning\n"; '
+        '{$| = 1; print STDOUT "legitimate\n"; print STDERR "warning\n"; '
         . '$f = shift; unlink $f; symlink shift, $f or die $!;}',
         '{' . File::Spec->catfile($run_dir, $target) . '}', '{' . $canary . '}',
     ]);
-    my $report = eval { $spawner->run({ save_output => 1 }, $program) };
+    my $report = eval { $spawner->run({ save_output => 1, active_connections => 0 }, $program) };
     if ($@) {
         diag $log->{dump};
         die $@;
     }
-    is $report->items->[0]->{terminate_reason}, $TR_OK, "$target attack completes";
+    is $report->items->[0]->{terminate_reason}, $TR_SECURITY, "$target attack is a security violation";
     is_deeply $spawner->stdout_lines, [ "legitimate\n" ], "$target retains stdout";
-    is_deeply $spawner->stderr_lines, [ "warning\n" ], "$target retains stderr";
+    is $spawner->stderr_lines->[0], "warning\n", "$target retains stderr";
     unlike $log->{dump}, qr/do not disclose/, "$target does not disclose canary";
     is_deeply $fu->read_lines($canary), [ 'do not disclose' ], "$target canary is unchanged";
 }
@@ -81,9 +81,35 @@ SKIP: {
         '{' . $owned . '}',
     ]);
     my $report = $spawner->run({
-        user => { name => 'nobody', password => undef },
+        user => { name => 'nobody', password => undef }, active_connections => 0,
     }, $program);
     is $report->items->[0]->{security}->{user_name}, 'nobody', 'spawner reports unprivileged user';
     is_deeply $spawner->stdout_lines_chomp, [ '65534' ], 'process really runs as nobody';
     is((stat $owned)[4], 65534, 'run directory is writable by nobody');
+}
+
+SKIP: {
+    skip 'seccomp test requires Linux', 4 if $^O eq 'MSWin32';
+    my @operations = (
+        [ symlink => 'symlink q(/dev/null), q(.tmp);' ],
+        [ ptrace => 'syscall(101, 0, 0, 0, 0);' ],
+        [ socket => 'use Socket qw(AF_UNIX SOCK_STREAM); socket(my $s, AF_UNIX, SOCK_STREAM, 0);' ],
+    );
+    for my $operation (@operations) {
+        my ($name, $code) = @$operation;
+        my ($spawner) = make_spawner;
+        my $program = CATS::Spawner::Program->new("{$^X}", [ '-e', '{' . $code . '}' ]);
+        my $report = $spawner->run({ active_connections => 0 }, $program);
+        is $report->items->[0]->{terminate_reason}, $TR_SECURITY, "seccomp $name is a security violation";
+    }
+    my ($spawner) = make_spawner;
+    my $source = File::Spec->catfile($run_dir, 'rename-source');
+    my $dest = File::Spec->catfile($run_dir, 'rename-dest');
+    $fu->write_to_file($source, 'ok') or die;
+    my $program = CATS::Spawner::Program->new("{$^X}", [
+        '-e', '{rename shift, shift or die $!; print "rename=ok\n";}',
+        '{' . $source . '}', '{' . $dest . '}',
+    ]);
+    $spawner->run({ active_connections => 0 }, $program);
+    like join('', @{$spawner->stdout_lines}), qr/rename=ok/, 'seccomp permits rename';
 }

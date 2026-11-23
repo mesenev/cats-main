@@ -253,6 +253,7 @@ my $terminate_reasons = {
 };
 
 sub mb_to_bytes { defined $_[0] ? int($_[0]  * 1024 * 1024 + 0.5) : undef }
+sub is_sigsys { ($_[0] // '') =~ /SIGSYS|^31$/ }
 
 sub parse_legacy_report {
     my ($self, $report, $file) = @_;
@@ -305,6 +306,7 @@ sub parse_legacy_report {
     $checking == @legacy_required_fields or return $report->error("Only $checking required fields");
     my $tr =  $terminate_reasons->{$raw_report->{TerminateReason}}
         or return $report->error("Unknown terminate reason: $raw_report->{TerminateReason}");
+    $tr = $TR_SECURITY if is_sigsys($raw_report->{ExitStatus});
 
     $report->add({
         application => $raw_report->{Application},
@@ -389,6 +391,7 @@ Sample JSON report
         $errors = [] if @$errors && $errors->[0] eq '<none>';
         my $tr =  $terminate_reasons->{$ji->{TerminateReason}}
             or die "Unknown terminate reason: $ji->{TerminateReason}";
+        $tr = $TR_SECURITY if is_sigsys($ji->{ExitStatus});
         my $lim = $ji->{Limit};
         my $res = $ji->{Result};
         $report->add({

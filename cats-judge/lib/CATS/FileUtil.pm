@@ -5,6 +5,7 @@ use warnings;
 
 use Carp;
 use Encode;
+use Errno qw(EACCES ELOOP EPERM);
 use Fcntl qw(O_RDONLY O_RDWR O_CREAT O_TRUNC);
 use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
@@ -45,13 +46,22 @@ sub _fn_win {
 
 BEGIN { *fn = $^O eq 'MSWin32' ? \&_fn_win : \&_fn_basic }
 
+sub security_violation { $_[0]->{security_violation} }
+sub reset_security_violation { delete $_[0]->{security_violation} }
+
+sub _security_error {
+    my ($self, $fn) = @_;
+    $self->{security_violation} = 1
+        if $!{EPERM} || $!{EACCES} || $!{ELOOP} || -l $fn;
+}
+
 sub open_regular {
     my ($self, $file_name, $write) = @_;
     my $fn = fn($file_name);
     my $flags = $write ? O_RDWR | O_CREAT | O_TRUNC : O_RDONLY;
     $flags |= Fcntl::O_NOFOLLOW() if $^O ne 'MSWin32';
-    sysopen my $f, $fn, $flags, 0666 or return;
-    -f $f or do { close $f; return };
+    sysopen my $f, $fn, $flags, 0666 or do { $self->_security_error($fn); return };
+    -f $f or do { $self->_security_error($fn); close $f; return };
     $f;
 }
 

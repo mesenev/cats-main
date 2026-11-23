@@ -76,6 +76,9 @@ exec $sp, @ARGV or die "sp-sandbox: exec $sp: $!\n" if !@programs;
 
 my $is_solution = grep $_ eq '-active-connection-count=0', @global;
 my %env_defs = map /^-D=([^=]+)=/ ? ($1 => 1) : (), @global;
+my $seccomp_profile = $is_solution ? "$RealBin/sp-sandbox-seccomp.bpf" : '-';
+$is_solution && !-r $seccomp_profile
+    and die "sp-sandbox: seccomp profile is not readable: $seccomp_profile\n";
 
 for (@global) {
     s/^(-active-process-count=)(\d+)$/$1 . ($2 + $overhead_processes * @programs)/e;
@@ -111,7 +114,7 @@ for my $p (@programs) {
     # sp resolves a bare name against the working directory; bwrap would search PATH.
     $app = "./$app" if $app !~ m{/} && -e "$cwd/$app";
     push @new_args, (defined $separator ? "--$separator" : ()), @opts,
-        $shim, $bwrap, @bwrap_opts, '--', $app, @app_args;
+        $shim, $seccomp_profile, $bwrap, @bwrap_opts, '--', $app, @app_args;
 }
 
 exec $sp, @new_args or die "sp-sandbox: exec $sp: $!\n";

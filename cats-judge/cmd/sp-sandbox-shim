@@ -2,6 +2,14 @@
 # Runs between sp and bwrap (see sp-sandbox). bwrap reports a program killed by
 # a signal as exit code 128+N; re-raise that signal on ourselves so sp sees the
 # same "terminated by signal" result it would without the sandbox.
+profile=$1
+shift
+if [ "$profile" != "-" ]; then
+    program=$1
+    shift
+    exec 9<"$profile" || exit 125
+    set -- "$program" --seccomp 9 "$@"
+fi
 "$@"
 rc=$?
 if [ "$rc" -gt 128 ] && [ "$rc" -lt 160 ]; then

@@ -656,7 +656,7 @@ sub run_checker {
 sub log_stderr_tail {
     my ($file_name) = @_;
     my ($max_bytes, $max_lines) = (2000, 10);
-    open my $f, '<', $file_name or return;
+    my $f = $fu->open_regular($file_name) or return;
     binmode $f;
     my $size = -s $f or return;
     seek $f, $size - $max_bytes, 0 if $size > $max_bytes;
@@ -712,7 +712,7 @@ sub run_single_test {
                 $TR_MEMORY_LIMIT   => $cats::st_memory_limit_exceeded,
                 $TR_WRITE_LIMIT    => $cats::st_write_limit_exceeded,
                 $TR_IDLENESS_LIMIT => $cats::st_idleness_limit_exceeded,
-                # $TR_SECURITY       => log_msg("security problem, setting UH\n"),
+                $TR_SECURITY       => $cats::st_security_violation,
             }->{$_[0]} // log_msg("unknown terminate reason: $_[0]\n");
         };
 
@@ -883,7 +883,7 @@ sub compile {
         $lint_result == $cats::st_testing or return $lint_result;
     }
     my $result = $src_proc->compile($r, { section => 1 }) or return;
-    if ($result == $cats::st_compilation_error) {
+    if ($result == $cats::st_compilation_error || $result == $cats::st_security_violation) {
         return $result;
     }
     $result == $cats::st_testing or die;
@@ -1057,6 +1057,7 @@ sub split_solution {
 
 sub test_solution {
     my ($r, $problem) = @_;
+    $fu->reset_security_violation;
 
     $log->colored($cfg->color->{testing_start})->
         msg("Testing solution part: $r->{id} for problem: $r->{problem_id}\n");
@@ -1145,15 +1146,18 @@ sub test_solution {
         $e =~ /^REINIT/ or die $e;
     }
     else {
+        return $cats::st_security_violation if $fu->security_violation;
         return ($result // '') eq 'FALL' ? $solution_status : $result;
     }
     # If the error persists, give up.
     $result = $try->();
+    return $cats::st_security_violation if $fu->security_violation;
     return ($result // '') eq 'FALL' ? $solution_status : $result;
 }
 
 sub prepare_problem {
     my ($r) = @_;
+    $fu->reset_security_violation;
     $r or return $cats::st_unhandled_error;
 
     if (defined $r->{id} && !defined $r->{status}) {
@@ -1194,7 +1198,9 @@ sub prepare_problem {
         $log->colored($cfg->color->{problem_cached})->msg("problem '$r->{problem_id}' cached\n");
     }
 
-    $judge->set_request_state($r, $state, $current_job_id, %$r) if $state == $cats::st_unhandled_error;
+    $state = $cats::st_security_violation if $fu->security_violation;
+    $judge->set_request_state($r, $state, $current_job_id, %$r)
+        if $state == $cats::st_unhandled_error || $state == $cats::st_security_violation;
 
     $state;
 }
@@ -1212,6 +1218,7 @@ sub is_UH_or_CE {
     my ($state) = @_;
     $state == $cats::st_compilation_error ||
     $state == $cats::st_lint_error ||
+    $state == $cats::st_security_violation ||
     $state == $cats::st_unhandled_error;
 }
 

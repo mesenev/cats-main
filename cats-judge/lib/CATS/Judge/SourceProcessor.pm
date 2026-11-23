@@ -51,12 +51,13 @@ sub unsupported_DEs {
 }
 
 # source: { de_id, name_parts }
-# => undef | $cats::st_testing | $cats::st_compilation_error
+# => undef | $cats::st_testing | $cats::st_compilation_error | $cats::st_security_violation
 sub compile {
     my ($self, $source, $opt) = @_;
     my $de_id = $source->{de_id} or die;
     my $name_parts = $source->{name_parts} or die;
     my $de = $self->{de_idx}->{$de_id} or die "undefined de_id: $de_id";
+    $self->fu->reset_security_violation unless $opt->{renamed};
 
     defined $de->{compile} or return;
     # Empty string -> no compilation needed.
@@ -82,6 +83,8 @@ sub compile {
             %limits, %env },
             apply_params($de->{compile_precompile}, $name_parts)
         ) or return;
+        return $cats::st_security_violation
+            if $sp_report->{terminate_reason} == $TR_SECURITY || $self->fu->security_violation;
         $sp_report->ok or return;
     }
 
@@ -101,6 +104,8 @@ sub compile {
         ) or return;
         $show_section = undef;
 
+        return $cats::st_security_violation
+            if $sp_report->{terminate_reason} == $TR_SECURITY || $self->fu->security_violation;
         return if @{$sp_report->errors} ||
             0 == grep $sp_report->{terminate_reason} == $_,
                 $TR_OK, $TR_TIME_LIMIT, $TR_MEMORY_LIMIT, $TR_WRITE_LIMIT;

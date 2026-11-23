@@ -43,6 +43,7 @@ GetOptions(
 
 $input && ($output || $mode) or usage;
 
+my $fu = CATS::FileUtil->new({ logger => CATS::Logger::Die->new });
 my $is_stdout = $mode =~ /^\*STDOUT|\*NONE$/;
 if ($line_number) {
     my $fout;
@@ -50,17 +51,17 @@ if ($line_number) {
         $fout = *STDOUT;
     }
     else {
-        open $fout, '>', $output or die $!;
+        $fout = $fu->open_regular($output, 1) or die $!;
     }
-    open my $fin, '<', $input or die $!;
+    my $fin = $fu->open_regular($input) or die $!;
     for (my $line = 1; <$fin>; ++$line) {
         print $fout $_ if $line == $line_number;
     }
 }
 elsif ($is_stdout) {
-    open my $fin, '<', $input or die $!;
+    my $fin = $fu->open_regular($input) or die $!;
     print while <$fin>;
 }
 else {
-    CATS::FileUtil->new({ logger => CATS::Logger::Die->new })->copy($input, $output);
+    $fu->copy($input, $output);
 }

@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 107;
+use Test::More tests => 109;
 use Test::Exception;
 
 use File::Spec;
@@ -81,7 +81,7 @@ like CATS::FileUtil::fn([ 'a', 'b' ]), qr/a.b/, 'fn';
 }
 
 SKIP: {
-    skip 'symlinks are not supported', 6 if $^O eq 'MSWin32';
+    skip 'symlinks are not supported', 8 if $^O eq 'MSWin32';
     my $fu = make_fu;
     my $canary = FS->catfile($tmpdir, 'canary.txt');
     my $link = FS->catfile($tmpdir, 'link.txt');
@@ -93,6 +93,9 @@ SKIP: {
     ok !$fu->copy($link, FS->catfile($tmpdir, 'copy.txt')), 'copy rejects symlink';
     ok !$fu->write_to_file($link, 'overwrite'), 'write_to_file rejects symlink';
     is_deeply $fu->read_lines($canary), [ 'do not disclose' ], 'canary is unchanged';
+    ok $fu->security_violation, 'symlink is marked as security violation';
+    $fu->reset_security_violation;
+    ok !$fu->security_violation, 'security violation marker resets';
     unlink $link;
     unlink $canary;
 }
