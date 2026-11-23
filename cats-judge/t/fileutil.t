@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 97;
+use Test::More tests => 107;
 use Test::Exception;
 
 use File::Spec;
@@ -78,6 +78,23 @@ like CATS::FileUtil::fn([ 'a', 'b' ]), qr/a.b/, 'fn';
     is_deeply $fu->read_lines($p, io => ':crlf'),
         [ "abc\n", "\n", "def\n", 'qqq' ], 'read_file crlf';
     unlink FS->catfile(@$p);
+}
+
+SKIP: {
+    skip 'symlinks are not supported', 6 if $^O eq 'MSWin32';
+    my $fu = make_fu;
+    my $canary = FS->catfile($tmpdir, 'canary.txt');
+    my $link = FS->catfile($tmpdir, 'link.txt');
+    $fu->write_to_file($canary, 'do not disclose') or die;
+    symlink 'canary.txt', $link or die $!;
+    ok !$fu->read_lines($link), 'read_lines rejects symlink';
+    ok !$fu->load_file($link, 100), 'load_file rejects symlink';
+    ok !$fu->read_lines_chomp($link), 'read_lines_chomp rejects symlink';
+    ok !$fu->copy($link, FS->catfile($tmpdir, 'copy.txt')), 'copy rejects symlink';
+    ok !$fu->write_to_file($link, 'overwrite'), 'write_to_file rejects symlink';
+    is_deeply $fu->read_lines($canary), [ 'do not disclose' ], 'canary is unchanged';
+    unlink $link;
+    unlink $canary;
 }
 
 {
@@ -237,6 +254,30 @@ like CATS::FileUtil::fn([ 'a', 'b' ]), qr/a.b/, 'fn';
     ok -f FS->catfile(@$fn1), 'copy_glob encoding';
     is_deeply $fu->read_lines($fn1), [ '111' ], 'copy_glob read_lines encoding';
     ok $fu->remove([ $tmpdir, '*' ]), 'remove after copy_glob encoding';
+}
+
+{
+    my $fu = make_fu;
+    $fu->write_to_file([ $tmpdir, 'source.txt' ], 'nested') or die;
+    my $dest = [ $tmpdir, 'new', 'parents', 'dest.txt' ];
+    ok $fu->copy([ $tmpdir, 'source.txt' ], $dest), 'copy creates destination parents';
+    is_deeply $fu->read_lines($dest), [ 'nested' ], 'copy to new parents preserves contents';
+    $fu->remove([ $tmpdir, 'source.txt' ]);
+    $fu->remove([ $tmpdir, 'new' ]);
+}
+
+{
+    my $fu = make_fu;
+    $fu->ensure_dir([ $tmpdir, 'glob-src' ]);
+    $fu->ensure_dir([ $tmpdir, 'glob-dest' ]);
+    $fu->write_to_file([ $tmpdir, 'glob-src', 'one' ], '1');
+    $fu->write_to_file([ $tmpdir, 'glob-src', 'two' ], '2');
+    ok $fu->copy([ $tmpdir, 'glob-src', '*' ], [ $tmpdir, 'glob-dest' ]),
+        'copy expands multi-source glob';
+    ok -f FS->catfile($tmpdir, 'glob-dest', 'one') &&
+        -f FS->catfile($tmpdir, 'glob-dest', 'two'), 'glob copy creates both destinations';
+    $fu->remove([ $tmpdir, 'glob-src' ]);
+    $fu->remove([ $tmpdir, 'glob-dest' ]);
 }
 
 {

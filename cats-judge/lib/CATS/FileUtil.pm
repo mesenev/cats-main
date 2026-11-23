@@ -5,6 +5,9 @@ use warnings;
 
 use Carp;
 use Encode;
+use Fcntl qw(O_RDONLY O_RDWR O_CREAT O_TRUNC);
+use File::Basename qw(basename dirname);
+use File::Path qw(make_path);
 use File::Spec;
 use File::Copy::Recursive qw(rcopy);
 use IPC::Cmd;
@@ -42,10 +45,21 @@ sub _fn_win {
 
 BEGIN { *fn = $^O eq 'MSWin32' ? \&_fn_win : \&_fn_basic }
 
+sub open_regular {
+    my ($self, $file_name, $write) = @_;
+    my $fn = fn($file_name);
+    my $flags = $write ? O_RDWR | O_CREAT | O_TRUNC : O_RDONLY;
+    $flags |= Fcntl::O_NOFOLLOW() if $^O ne 'MSWin32';
+    sysopen my $f, $fn, $flags, 0666 or return;
+    -f $f or do { close $f; return };
+    $f;
+}
+
 sub write_to_file {
     my ($self, $file_name, $src) = @_;
     my $fn = fn($file_name);
-    open my $file, '>', $fn or return $self->log("open failed: '$fn' ($!)\n");
+    my $file = $self->open_regular($fn, 1)
+        or return $self->log("open failed: '$fn' ($!)\n");
     binmode $file;
     print $file $src;
     1;
@@ -54,15 +68,17 @@ sub write_to_file {
 sub read_lines {
     my ($self, $file_name, %opts) = @_;
     my $fn = fn($file_name);
-    open my $f, '<' . ($opts{io} // ''), $fn
+    my $f = $self->open_regular($fn)
         or return $self->log("read_lines failed: '$fn' ($!)\n");
+    binmode $f, $opts{io} if $opts{io};
     [ <$f> ];
 }
 
 sub load_file {
     my ($self, $file_name, $limit) = @_;
     my $fn = fn($file_name);
-    open my $f, '<', $fn or return $self->log("load_file failed: '$fn' ($!)\n");
+    my $f = $self->open_regular($fn)
+        or return $self->log("load_file failed: '$fn' ($!)\n");
     binmode $f;
     read($f, my $res, $limit);
     $res, -s $f;
@@ -71,8 +87,9 @@ sub load_file {
 sub read_lines_chomp {
     my ($self, $file_name, %opts) = @_;
     my $fn = fn($file_name);
-    open my $f, '<' . ($opts{io} // ''), $fn
+    my $f = $self->open_regular($fn)
         or return $self->log("read_lines_chomp failed: '$fn' ($!)\n");
+    binmode $f, $opts{io} if $opts{io};
     [ map { chomp; $_ } <$f> ];
 }
 
@@ -145,10 +162,38 @@ sub mkdir_clean {
     1;
 }
 
+sub _copy_regular {
+    my ($self, $sn, $dn) = @_;
+    my $in = $self->open_regular($sn) or return;
+    my $mode = (stat $in)[2] & 07777;
+    my $parent = dirname($dn);
+    -d $parent or make_path($parent) or return;
+    my $out = $self->open_regular($dn, 1) or return;
+    binmode $in;
+    binmode $out;
+    my $buffer;
+    while (read $in, $buffer, 1024 * 1024) {
+        print $out $buffer or return;
+    }
+    close $out or return;
+    chmod $mode, $dn;
+}
+
 sub copy {
     my ($self, $src, $dest) = @_;
     my ($sn, $dn) = map File::Spec->canonpath(fn $_), $src, $dest;
-    return 1 if rcopy $sn, $dn;
+    if ($sn =~ /[*?\[]/) {
+        my @sources = glob $sn;
+        for my $source (@sources) {
+            my $target = -d $dn ? File::Spec->catfile($dn, basename($source)) : $dn;
+            my $ok = !-l $source && -d $source ?
+                rcopy($source, $target) : $self->_copy_regular($source, $target);
+            $ok or return $self->log(
+                "copy failed: 'cp $source $target' '$!' " . Carp::longmess('') . "\n");
+        }
+        return 1 if @sources;
+    }
+    return 1 if !-l $sn && -d $sn ? rcopy($sn, $dn) : $self->_copy_regular($sn, $dn);
     $self->log("copy failed: 'cp $sn $dn' '$!' " . Carp::longmess('') . "\n");
 }
 
@@ -158,7 +203,8 @@ sub copy_glob {
     my (@files) = glob $sn;
     @files == 1 or return $self->log(
         sprintf "duplicate copy sources, '%s' for 'cp %s %s'\n", join (', ', @files), $sn, $dn);
-    return 1 if rcopy $files[0], $dn;
+    return 1 if !-l $files[0] && -d $files[0] ?
+        rcopy($files[0], $dn) : $self->_copy_regular($files[0], $dn);
     $self->log("copy failed: 'cp $sn $dn' '$!' " . Carp::longmess('') . "\n");
 }
 

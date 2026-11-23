@@ -73,6 +73,8 @@ sub compile {
         @cats::limits_fields;
     $limits{deadline} = $limits{time_limit} if $limits{time_limit};
     $limits{active_connections} = 0;
+    $limits{user} = { name => $self->cfg->sp_user, password => $self->cfg->sp_password }
+        if $self->cfg->sp_user;
 
     if ($de->{compile_precompile}) {
         my $sp_report = $self->sp->run_single({

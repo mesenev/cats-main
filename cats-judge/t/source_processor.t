@@ -3,7 +3,7 @@ use warnings;
 
 use File::Spec;
 use FindBin;
-use Test::More tests => 5;
+use Test::More tests => 6;
 
 use lib File::Spec->catdir($FindBin::Bin, '..', 'lib');
 use lib File::Spec->catdir($FindBin::Bin, '..', 'lib', 'cats-problem');
@@ -18,6 +18,8 @@ use CATS::Judge::SourceProcessor;
 
     sub DEs { $_[0]->{DEs} }
     sub compile { $_[0]->{compile} }
+    sub sp_user { 'nobody' }
+    sub sp_password { undef }
 }
 
 {
@@ -64,3 +66,5 @@ is_deeply [ map $_->{globals}->{active_connections}, @$calls ], [ 0, 0, 0 ],
     'network is disabled for every compilation stage';
 is_deeply [ map $_->{globals}->{deadline}, @$calls ], [ 60, 60, 60 ],
     'compilation limits are preserved';
+is_deeply [ map $_->{globals}->{user}->{name}, @$calls ], [ 'nobody', 'nobody', 'nobody' ],
+    'every compilation stage uses the unprivileged user';

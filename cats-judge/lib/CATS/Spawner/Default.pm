@@ -27,28 +27,37 @@ sub _init {
 
 sub opts { $_[0]->{opts} }
 
+sub _capture_lines {
+    my ($self, $path, $chomp) = @_;
+    my $f = $self->{capture_handles}->{$path} or die "Capture is not open: $path";
+    seek $f, 0, 0 or die "Can't rewind capture: $path";
+    my @lines = <$f>;
+    chomp @lines if $chomp;
+    \@lines;
+}
+
 sub stdout_lines {
     my ($self) = @_;
     die if @{$self->{stdouts}} != 1;
-    $self->{fu}->read_lines($self->{stdouts}->[0]);
+    $self->_capture_lines($self->{stdouts}->[0]);
 }
 
 sub stderr_lines {
     my ($self) = @_;
     die if @{$self->{stderrs}} != 1;
-    $self->{fu}->read_lines($self->{stderrs}->[0]);
+    $self->_capture_lines($self->{stderrs}->[0]);
 }
 
 sub stdout_lines_chomp {
     my ($self) = @_;
     die if @{$self->{stdouts}} != 1;
-    $self->{fu}->read_lines_chomp($self->{stdouts}->[0]);
+    $self->_capture_lines($self->{stdouts}->[0], 1);
 }
 
 sub stderr_lines_chomp {
     my ($self) = @_;
     die if @{$self->{stderrs}} != 1;
-    $self->{fu}->read_lines_chomp($self->{stderrs}->[0]);
+    $self->_capture_lines($self->{stderrs}->[0], 1);
 }
 
 sub make_sp_params {
@@ -108,8 +117,10 @@ sub _dump_child {
     my $color = $self->opts->{color}->{$p{color}};
     my $encoding = $globals->{encoding} // $child_encoding;
 
-    open(my $fstdout, '<', $self->opts->{$p{file}})
-        or return $log->msg("open failed: '%s' ($!)\n", $self->opts->{$p{file}});
+    my $path = $self->opts->{$p{file}};
+    my $fstdout = $self->{capture_handles}->{$path}
+        or return $log->msg("capture is not open: '%s'\n", $path);
+    seek $fstdout, 0, 0 or return $log->msg("can't rewind capture: '%s'\n", $path);
 
     my $eol = 0;
     while (<$fstdout>) {
@@ -165,8 +176,11 @@ sub _run {
     my $run_dir = $globals->{run_dir} // $self->opts->{run_dir};
     chdir($run_dir) or return $report->error("failed to change directory to: $run_dir") if $run_dir;
 
-    for (keys %stdouts, keys %stderrs) {
-        open my $f, '>', $_ or die "Can't open redirect file: $_ ($!)";
+    my %capture_paths = map { $_ => 1 } keys %stdouts, keys %stderrs;
+    $self->{capture_handles} = {};
+    for my $path (keys %capture_paths) {
+        $self->{capture_handles}->{$path} = $self->{fu}->open_regular($path, 1)
+            or die "Can't open capture file: $path ($!)";
     }
 
     my $exec_str = join ' ', $self->{sp}, @quoted;
@@ -174,7 +188,7 @@ sub _run {
 
     $report->exit_code(system($exec_str));
 
-    open my $file, '<', $opts->{report}
+    my $file = $self->{fu}->open_regular($opts->{report})
         or return $report->error("unable to open report '$opts->{report}': $!")->
             write_to_log($opts->{logger});
 

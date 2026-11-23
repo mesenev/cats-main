@@ -8,7 +8,7 @@
 
 <security
     cats_password=""
-    sp_user=""
+    sp_user="nobody"
     sp_password=""
 />
 
