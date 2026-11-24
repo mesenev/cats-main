@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 109;
+use Test::More tests => 113;
 use Test::Exception;
 
 use File::Spec;
@@ -267,6 +267,21 @@ SKIP: {
     is_deeply $fu->read_lines($dest), [ 'nested' ], 'copy to new parents preserves contents';
     $fu->remove([ $tmpdir, 'source.txt' ]);
     $fu->remove([ $tmpdir, 'new' ]);
+}
+
+{
+    my $fu = make_fu;
+    $fu->write_to_file([ $tmpdir, 'source.txt' ], 'nested') or die;
+    $fu->ensure_dir([ $tmpdir, 'dest-dir' ]);
+    my $dest = [ $tmpdir, 'dest-dir', 'source.txt' ];
+    ok $fu->copy([ $tmpdir, 'source.txt' ], [ $tmpdir, 'dest-dir' ]),
+        'copy regular file into existing directory';
+    is_deeply $fu->read_lines($dest), [ 'nested' ], 'copy into directory preserves contents';
+    ok $fu->copy_glob([ $tmpdir, 'sour*' ], [ $tmpdir, 'dest-dir' ]),
+        'copy_glob regular file into existing directory';
+    is_deeply $fu->read_lines($dest), [ 'nested' ], 'copy_glob into directory preserves contents';
+    $fu->remove([ $tmpdir, 'source.txt' ]);
+    $fu->remove([ $tmpdir, 'dest-dir' ]);
 }
 
 {

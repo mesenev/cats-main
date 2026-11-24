@@ -203,8 +203,10 @@ sub copy {
         }
         return 1 if @sources;
     }
-    return 1 if !-l $sn && -d $sn ? rcopy($sn, $dn) : $self->_copy_regular($sn, $dn);
-    $self->log("copy failed: 'cp $sn $dn' '$!' " . Carp::longmess('') . "\n");
+    my $source_is_dir = !-l $sn && -d $sn;
+    my $target = !$source_is_dir && -d $dn ? File::Spec->catfile($dn, basename($sn)) : $dn;
+    return 1 if $source_is_dir ? rcopy($sn, $target) : $self->_copy_regular($sn, $target);
+    $self->log("copy failed: 'cp $sn $target' '$!' " . Carp::longmess('') . "\n");
 }
 
 sub copy_glob {
@@ -213,9 +215,10 @@ sub copy_glob {
     my (@files) = glob $sn;
     @files == 1 or return $self->log(
         sprintf "duplicate copy sources, '%s' for 'cp %s %s'\n", join (', ', @files), $sn, $dn);
-    return 1 if !-l $files[0] && -d $files[0] ?
-        rcopy($files[0], $dn) : $self->_copy_regular($files[0], $dn);
-    $self->log("copy failed: 'cp $sn $dn' '$!' " . Carp::longmess('') . "\n");
+    my $source_is_dir = !-l $files[0] && -d $files[0];
+    my $target = !$source_is_dir && -d $dn ? File::Spec->catfile($dn, basename($files[0])) : $dn;
+    return 1 if $source_is_dir ? rcopy($files[0], $target) : $self->_copy_regular($files[0], $target);
+    $self->log("copy failed: 'cp $sn $target' '$!' " . Carp::longmess('') . "\n");
 }
 
 sub quote_fn {
