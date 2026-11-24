@@ -3,6 +3,7 @@ package CATS::User;
 use strict;
 use warnings;
 
+use Digest::SHA;
 use Encode;
 
 use JSON::XS qw(encode_json);
@@ -326,6 +327,20 @@ sub register_by_login {
 sub make_sid {
     my @ch = ('A'..'Z', 'a'..'z', '0'..'9');
     join '', map { $ch[rand @ch] } 1..30;
+}
+
+sub record_sid {
+    my ($sid, $account_id, $ip) = @_;
+    my $sid_hash = Digest::SHA::sha256_hex($sid);
+    $dbh->do(qq~
+        INSERT INTO account_sid_history (sid_hash, account_id, ip)
+        SELECT ?, ?, ? $db->{FROM_DUMMY}
+        WHERE NOT EXISTS (SELECT 1 FROM account_sid_history H WHERE H.sid_hash = ?)~, undef,
+        $sid_hash, $account_id, $ip, $sid_hash);
+    ($dbh->selectrow_array(q~
+        SELECT account_id FROM account_sid_history WHERE sid_hash = ?~, undef, $sid_hash)
+        // 0) == $account_id or die 'SID history belongs to another account';
+    $sid_hash;
 }
 
 sub make_token {

@@ -442,6 +442,7 @@ sub impersonate_frame {
     $dbh->do(q~
         UPDATE accounts SET last_ip = ?, sid = ? WHERE id = ?~, undef,
         CATS::IP::get_ip, $new_sid, $new_user_id);
+    CATS::User::record_sid($new_sid, $new_user_id, CATS::IP::get_ip);
     $dbh->commit;
     $p->redirect(url_function 'contests', sid => $new_sid, cid => $cid);
 }

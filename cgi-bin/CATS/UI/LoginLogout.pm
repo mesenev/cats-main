@@ -34,12 +34,18 @@ sub split_ips { map { /(\S+)/ ? $1 : () } split ',', $_[0] }
 sub _ensure_good_sid {
     my ($current_ip, $aid) = @_;
     for (1..20) {
-        $dbh->do(q~
+        my $sid_hash = Digest::SHA::sha256_hex($sid);
+        if ($dbh->do(q~
             UPDATE accounts A SET sid = ?, last_login = CURRENT_TIMESTAMP, last_ip = ?
             WHERE A.id = ? AND
-                NOT EXISTS (SELECT 1 FROM accounts A1 WHERE A1.sid = ? AND A1.id <> ?)~, undef,
-            $sid, $current_ip, $aid, $sid, $aid
-        ) and return $dbh->commit;
+                NOT EXISTS (SELECT 1 FROM accounts A1 WHERE A1.sid = ? AND A1.id <> ?) AND
+                NOT EXISTS (SELECT 1 FROM account_sid_history H
+                    WHERE H.sid_hash = ? AND H.account_id <> ?)~, undef,
+            $sid, $current_ip, $aid, $sid, $aid, $sid_hash, $aid
+        )) {
+            CATS::User::record_sid($sid, $aid, $current_ip);
+            return $dbh->commit;
+        }
         $sid = CATS::User::make_sid;
     }
     die 'Can not generate sid';

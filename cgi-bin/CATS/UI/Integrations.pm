@@ -5,6 +5,7 @@ use warnings;
 
 use CATS::DB;
 use CATS::Globals qw($cid $contest $is_jury $t);
+use CATS::IP;
 use CATS::Output qw(init_template url_f);
 use CATS::User;
 use CATS::Utils;
@@ -36,8 +37,9 @@ sub integration_bkd_start_api {
             UPDATE accounts SET sid = ?, last_login = CURRENT_TIMESTAMP
             WHERE id = ?~, undef,
             $user_sid, $aid);
-        $need_commit = 1;
     }
+    CATS::User::record_sid($user_sid, $aid, CATS::IP::get_ip);
+    $need_commit = 1;
     if (!$caid) {
         CATS::User::add_to_contest(contest_id => $cid, account_id => $aid, is_remote => 1, is_ooc => 0);
         $need_commit = 1;
