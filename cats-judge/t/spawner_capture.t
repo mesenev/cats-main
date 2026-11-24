@@ -4,7 +4,7 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use FindBin;
-use Test::More tests => 22;
+use Test::More tests => 26;
 
 use lib File::Spec->catdir($FindBin::Bin, '..', 'lib');
 use lib File::Spec->catdir($FindBin::Bin, '..', 'lib', 'cats-problem');
@@ -89,7 +89,7 @@ SKIP: {
 }
 
 SKIP: {
-    skip 'seccomp test requires Linux', 4 if $^O eq 'MSWin32';
+    skip 'seccomp test requires Linux', 6 if $^O eq 'MSWin32';
     my @operations = (
         [ symlink => 'symlink q(/dev/null), q(.tmp);' ],
         [ ptrace => 'syscall(101, 0, 0, 0, 0);' ],
@@ -112,4 +112,42 @@ SKIP: {
     ]);
     $spawner->run({ active_connections => 0 }, $program);
     like join('', @{$spawner->stdout_lines}), qr/rename=ok/, 'seccomp permits rename';
+
+    ($spawner) = make_spawner;
+    $program = CATS::Spawner::Program->new("{$^X}", [
+        '-e', '{lstat shift or die $!; print "lstat=ok\n";}', '{' . $dest . '}',
+    ]);
+    $spawner->run({ active_connections => 0 }, $program);
+    like join('', @{$spawner->stdout_lines}), qr/lstat=ok/, 'seccomp permits lstat';
+
+    ($spawner) = make_spawner;
+    $program = CATS::Spawner::Program->new("{$^X}", [
+        '-e', '{syscall(237, 0, 0, 0, 0, 0, 0); print "mbind=ok\n";}',
+    ]);
+    $spawner->run({ active_connections => 0 }, $program);
+    like join('', @{$spawner->stdout_lines}), qr/mbind=ok/, 'seccomp permits mbind';
+}
+
+SKIP: {
+    my $pypy = '/opt/pypy3.11/bin/pypy3.11';
+    skip 'PyPy with NumPy is not installed', 2 unless -x $pypy;
+    my $source = File::Spec->catfile($run_dir, 'pypy-compile.pypy');
+    $fu->write_to_file($source, "print('ok')\n") or die;
+    my ($spawner) = make_spawner;
+    my $program = CATS::Spawner::Program->new("{$pypy}", [ '-m', 'py_compile', 'pypy-compile.pypy' ]);
+    my $report = $spawner->run({ active_connections => 0 }, $program);
+    is $report->items->[0]->{terminate_reason}, $TR_OK, 'PyPy compilation is allowed';
+
+    ($spawner) = make_spawner;
+    $program = CATS::Spawner::Program->new("{$pypy}", [
+        '-c', '{import numpy; a = numpy.arange(100); assert a.sum() == 4950}',
+    ]);
+    $report = eval { $spawner->run({ active_connections => 0 }, $program) };
+    if ($@) {
+        diag $@;
+        fail 'NumPy import is allowed';
+    }
+    else {
+        is $report->items->[0]->{terminate_reason}, $TR_OK, 'NumPy import is allowed';
+    }
 }

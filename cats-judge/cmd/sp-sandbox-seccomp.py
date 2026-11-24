@@ -14,8 +14,8 @@ exit_group faccessat faccessat2 fallocate fchmod fchmodat fcntl fdatasync fgetxa
 flistxattr flock fork fstat fstatfs fsync ftruncate futex futex_time64 futimesat
 get_mempolicy getcwd getdents getdents64 getegid geteuid getgid getgroups getitimer
 getpgid getpgrp getpid getppid getpriority getrandom getresgid getresuid getrlimit
-getrusage getsid gettid gettimeofday getuid getxattr ioctl kill lseek madvise
-membarrier memfd_create mincore mkdir mkdirat mlock mmap mprotect mremap msync munlock
+getrusage getsid gettid gettimeofday getuid getxattr ioctl kill lseek lstat madvise
+mbind membarrier memfd_create mincore mkdir mkdirat mlock mmap mprotect mremap msync munlock
 munmap nanosleep newfstatat nice open openat openat2 pipe pipe2 poll ppoll prctl
 pread64 preadv preadv2 prlimit64 pselect6 pwrite64 pwritev pwritev2 read readlink
 readlinkat readv recvfrom recvmsg rename renameat renameat2 rmdir rseq rt_sigaction
